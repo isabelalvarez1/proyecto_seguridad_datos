@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIS-SEG — Sistema Inteligente de Seguridad Pública Ecuador</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap">
+    <style>
+        :root {
+            --bg: #04080f;
+            --surface: rgba(10, 18, 32, 0.7);
+            --border: rgba(255, 255, 255, 0.07);
+            --blue: #2563eb;
+            --cyan: #06b6d4;
+            --red: #ef4444;
+            --amber: #f59e0b;
+            --green: #22c55e;
+            --purple: #a855f7;
+            --text: #f1f5f9;
+            --muted: #64748b;
+            --glow-blue: 0 0 30px rgba(37, 99, 235, 0.2);
+            --glow-cyan: 0 0 30px rgba(6, 182, 212, 0.2);
+        }
+
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(ellipse at 10% 0%, rgba(37, 99, 235, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 90% 100%, rgba(6, 182, 212, 0.10) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(168, 85, 247, 0.04) 0%, transparent 60%);
+            background-attachment: fixed;
+        }
+
+        /* ── GRID OVERLAY ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* ── NAVBAR ── */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 3rem;
+            background: rgba(4, 8, 15, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--blue), var(--cyan));
+            display: grid;
+            place-items: center;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .nav-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: linear-gradient(90deg, var(--blue), var(--cyan));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-pills {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-pill {
+            padding: 0.3rem 0.9rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid;
+        }
+
+        .pill-blue {
+            background: rgba(37, 99, 235, 0.1);
+            color: #60a5fa;
+            border-color: rgba(37, 99, 235, 0.3);
+        }
+
+        .pill-green {
+            background: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        /* ── WRAPPER ── */
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2.5rem;
+        }
+
+        /* ── HERO ── */
+        .hero {
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            color: var(--cyan);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.2rem;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--blue) 0%, var(--cyan) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            color: var(--muted);
+            font-size: 1.1rem;
+            max-width: 550px;
+            margin: 0 auto;
+        }
+
+        /* ── KPI GRID ── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.2rem;
+        }
+
+        .kpi-card {
+            background: var(--surface);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1.8rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--accent-color, linear-gradient(90deg, var(--blue), var(--cyan)));
+        }
+
+        .kpi-card.red {
+            --accent-color: linear-gradient(90deg, #ef4444, #f97316);
+        }
+
+        .kpi-card.amber {
+            --accent-color: linear-gradient(90deg, #f59e0b, #eab308);
+        }
+
+        .kpi-card.blue {
+            --accent-color: linear-gradient(90deg, #3b82f6, #06b6d4);
+        }
+
+        .kpi-card.green {
+            --accent-color: linear-gradient(90deg, #22c55e, #10b981);
+        }
+
+        .kpi-icon {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .kpi-value {
+            font-family: 'Poppins', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+            margin-bottom: 0.4rem;
+        }
+
+        .kpi-label {
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-loading {
+            opacity: 0.4;
+            font-style: italic;
+            font-size: 1.2rem;
+        }
+
+        /* ── GLASS CARD ── */
+        .glass-card {
+            background: var(--surface);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+            transition: box-shadow 0.3s;
+        }
+
+        .glass-card:hover {
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), var(--glow-blue);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--glow-blue), var(--glow-cyan));
+            display: grid;
+            place-items: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .section-info h3 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .section-info p {
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-top: 0.2rem;
+        }
+
+        /* ── POWER BI ── */
+        .powerbi-wrap {
+            width: 100%;
+            height: 600px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .powerbi-wrap iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .pbi-placeholder {
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .pbi-placeholder h4 {
+            color: var(--text);
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .pbi-code {
+            background: rgba(37, 99, 235, 0.1);
+            color: #93c5fd;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        /* ── FORM ── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .form-control {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            appearance: none;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        select.form-control {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.8rem center;
+            background-size: 1em;
+            padding-right: 2.5rem;
+        }
+
+        select.form-control option {
+            background: #0f172a;
+        }
+
+        /* ── BUTTON ── */
+        .btn-predict {
+            width: 100%;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--blue), var(--cyan));
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.7rem;
+        }
+
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(6, 182, 212, 0.3);
+        }
+
+        .btn-predict:active {
+            transform: translateY(0);
+        }
+
+        .btn-predict:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── RESULTADOS ── */
+        .resultado {
+            display: none;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+            animation: fadeUp 0.4s ease-out;
+        }
+
+        .resultado.show {
+            display: block;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: scale(1.02);
+        }
+
+        .metric-num {
+            font-family: 'Poppins', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-num.rf {
+            color: var(--purple);
+        }
+
+        .metric-num.xgb {
+            color: var(--green);
+        }
+
+        .metric-num.prom {
+            color: var(--cyan);
+        }
+
+        .metric-lbl {
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .riesgo-wrap {
+            text-align: center;
+        }
+
+        .riesgo-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.75rem 2rem;
+            border-radius: 30px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .riesgo-ALTO {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            border: 1px solid #f87171;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .riesgo-MEDIO {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border: 1px solid #fbbf24;
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+        }
+
+        .riesgo-BAJO {
+            background: linear-gradient(135deg, #22c55e, #15803d);
+            border: 1px solid #4ade80;
+            box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+        }
+
+        /* ── ML INFO CARDS ── */
+        .ml-info {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.2rem;
+        }
+
+        .ml-card {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .ml-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .ml-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .ml-card h4 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        .ml-card p {
+            color: var(--muted);
+            font-size: 0.82rem;
+            line-height: 1.6;
+        }
+
+        .ml-metric {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .ml-metric strong {
+            color: var(--text);
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            text-align: center;
+            padding: 2.5rem 1rem;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.82rem;
+            line-height: 1.8;
+        }
+
+        footer strong {
+            color: var(--text);
+        }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeDown 0.6s ease-out both;
+        }
+
+        .delay-1 {
+            animation-delay: 0.1s;
+        }
+
+        .delay-2 {
+            animation-delay: 0.2s;
+        }
+
+        .delay-3 {
+            animation-delay: 0.3s;
+        }
+
+        .delay-4 {
+            animation-delay: 0.4s;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 900px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .ml-info {
+                grid-template-columns: 1fr;
+            }
+
+            .navbar {
+                padding: 1rem 1.5rem;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .wrapper {
+                padding: 2rem 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <div class="nav-logo">S</div>
+            <span class="nav-title">SIS-SEG ECUADOR</span>
+        </div>
+        <div class="nav-pills">
+            <span class="nav-pill pill-blue">BI + Machine Learning</span>
+            <span class="nav-pill pill-green">2017 — 2025</span>
+        </div>
+    </nav>
+
+    <div class="wrapper">
+
+        <!-- HERO -->
+        <header class="hero animate-in">
+            <!--<div class="hero-eyebrow">Plataforma Analítica Criminológica</div>-->
+            <h1>Sistema Inteligente de<br><span>Seguridad Pública</span></h1>
+            <p>Análisis histórico, visualización interactiva y predicción con Machine Learning para la toma de
+                decisiones en seguridad pública del Ecuador.</p>
+        </header>
+
+        <!-- KPI CARDS -->
+        <div class="kpi-grid">
+            <div class="kpi-card red animate-in delay-1">
+                <span class="kpi-icon">🔴</span>
+                <div class="kpi-value kpi-loading" id="kpi-homicidios">—</div>
+                <div class="kpi-label">Total Homicidios</div>
+            </div>
+            <div class="kpi-card amber animate-in delay-2">
+                <span class="kpi-icon">🟡</span>
+                <div class="kpi-value kpi-loading" id="kpi-desapariciones">—</div>
+                <div class="kpi-label">Desapariciones</div>
+            </div>
+            <div class="kpi-card blue animate-in delay-3">
+                <span class="kpi-icon">🔵</span>
+                <div class="kpi-value kpi-loading" id="kpi-armas">—</div>
+                <div class="kpi-label">Armas Incautadas</div>
+            </div>
+            <div class="kpi-card green animate-in delay-4">
+                <span class="kpi-icon">🟢</span>
+                <div class="kpi-value kpi-loading" id="kpi-defunciones">—</div>
+                <div class="kpi-label">Defunciones</div>
+            </div>
+        </div>
+
+        <!-- POWER BI -->
+        <section class="glass-card animate-in">
+            <div class="section-header">
+                <img src="icons/crecimiento.png" alt="" class="section-icon">
+                <div class="section-info">
+                    <h3>Dashboard Interactivo Histórico</h3>
+                    <p>Análisis detallado con filtros dinámicos por año, provincia y cantón</p>
+                </div>
+            </div>
+            <div class="powerbi-wrap">
+                <iframe title="proyecto_KPI" width="600" height="373.5"
+                    src="https://app.powerbi.com/view?r=eyJrIjoiNDgxYzA1ZDUtZDIyMC00YjdlLWFlOTktNDk0YjRjZmYwNWIwIiwidCI6IjY4MmE0ZTZhLWE3N2YtNDk1OC1hM2FjLTllMjY2ZDE4YWEzNyIsImMiOjR9"
+                    frameborder="0" allowFullScreen="true">
+                </iframe>
+            </div>
+        </section>
+
+        <!-- PREDICTOR ML -->
+        <section class="glass-card animate-in">
+            <div class="section-header">
+                <img src="icons/bulbo.png" alt="" class="section-icon">
+                <div class="section-info">
+                    <h3>Modelo Predictivo</h3>
+                    <p>Modelos Random Forest y XGBoost entrenados con datos 2017–2024</p>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Año de Predicción</label>
+                    <input type="number" id="pred-anio" class="form-control" value="2026" min="2025" max="2035">
+                </div>
+                <div class="form-group">
+                    <label>Mes</label>
+                    <select id="pred-mes" class="form-control">
+                        <option value="1">Enero</option>
+                        <option value="2">Febrero</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Mayo</option>
+                        <option value="6">Junio</option>
+                        <option value="7">Julio</option>
+                        <option value="8" selected>Agosto</option>
+                        <option value="9">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Provincia</label>
+                    <select id="pred-provincia" class="form-control" onchange="cargarCantones()">
+                        <option>Cargando provincias...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cantón</label>
+                    <select id="pred-canton" class="form-control">
+                        <option>Seleccione provincia...</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn-predict" id="btnPredictor" onclick="predecir()">
+                Generar Proyección de Homicidios
+            </button>
+
+            <!-- RESULTADOS -->
+            <div class="resultado" id="resultado">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-num rf" id="res-rf">0</div>
+                        <div class="metric-lbl">Random Forest</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-num xgb" id="res-xgb">0</div>
+                        <div class="metric-lbl">XGBoost</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-num prom" id="res-prom">0</div>
+                        <div class="metric-lbl">Proyección Consolidada</div>
+                    </div>
+                </div>
+                <div class="riesgo-wrap">
+                    <div id="res-riesgo" class="riesgo-badge">
+                        <span>⚠️ Nivel de Riesgo:</span>
+                        <strong id="res-riesgo-texto">...</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- INFO MODELOS ML -->
+        <section class="glass-card animate-in">
+            <div class="section-header">
+                <img src="icons/gestion.png" alt="" class="section-icon">
+                <div class="section-info">
+                    <h3>Modelos de Machine Learning Utilizados</h3>
+                    <p>Arquitectura y métricas de rendimiento de los modelos predictivos</p>
+                </div>
+            </div>
+            <div class="ml-info">
+                <div class="ml-card">
+                    <div class="ml-card-header">
+                        <div class="ml-dot" style="background:var(--purple)"></div>
+                        <h4>Random Forest</h4>
+                    </div>
+                    <p>Ensemble de árboles de decisión que combina múltiples predictores para reducir el sobreajuste y
+                        mejorar la generalización.</p>
+                    <div class="ml-metric">Árboles: <strong>100</strong> · Variables: <strong>8 features</strong></div>
+                </div>
+                <div class="ml-card">
+                    <div class="ml-card-header">
+                        <div class="ml-dot" style="background:var(--green)"></div>
+                        <h4>XGBoost</h4>
+                    </div>
+                    <p>Gradient Boosting optimizado que construye modelos secuencialmente, corrigiendo errores de
+                        iteraciones anteriores.</p>
+                    <div class="ml-metric">Estimadores: <strong>100</strong> · Optimización: <strong>Gradient
+                            Boosting</strong></div>
+                </div>
+                <div class="ml-card">
+                    <div class="ml-card-header">
+                        <div class="ml-dot" style="background:var(--cyan)"></div>
+                        <h4>Variables Predictoras</h4>
+                    </div>
+                    <p>Año, mes, provincia, cantón, sexo, rango de edad, tipo de arma y motivación del evento como
+                        features principales.</p>
+                    <div class="ml-metric">Período entrenamiento: <strong>2017–2024</strong> · Split:
+                        <strong>80/20</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+        <strong>Sistema Inteligente de Seguridad Pública — Ecuador</strong><br>
+        Artículo Científico · Data Warehouse + OLAP + Machine Learning · 2017–2025<br>
+        <span style="color:#334155; margin-top:0.5rem; display:block">Datos: MDI · INEC · Registro Civil · ENEMDU</span>
+    </footer>
+
+    <script>
+        const API = 'http://localhost:8000';
+
+        // ── KPIs ────────────────────────────────────────────────
+        async function cargarKPIs() {
+            try {
+                const [hom, des, arm, def] = await Promise.all([
+                    fetch(`${API}/homicidios/anual`).then(r => r.json()),
+                    fetch(`${API}/desapariciones/anual`).then(r => r.json()),
+                    fetch(`${API}/armas/anual`).then(r => r.json()),
+                    fetch(`${API}/defunciones/anual`).then(r => r.json())
+                ]);
+
+                const fmt = n => n.toLocaleString('es-EC');
+                document.getElementById('kpi-homicidios').textContent = fmt(hom.reduce((s, d) => s + d.total, 0));
+                document.getElementById('kpi-desapariciones').textContent = fmt(des.reduce((s, d) => s + d.total_desapariciones, 0));
+                document.getElementById('kpi-armas').textContent = fmt(arm.reduce((s, d) => s + d.total_armas, 0));
+                document.getElementById('kpi-defunciones').textContent = fmt(def.reduce((s, d) => s + d.total_defunciones, 0));
+
+                document.querySelectorAll('.kpi-value').forEach(el => el.classList.remove('kpi-loading'));
+            } catch (e) {
+                console.error('Error KPIs:', e);
+                document.querySelectorAll('.kpi-value').forEach(el => el.textContent = 'N/D');
+            }
+        }
+
+        // ── PROVINCIAS ──────────────────────────────────────────
+        async function cargarProvincias() {
+            try {
+                const provs = await fetch(`${API}/provincias`).then(r => r.json());
+                const sel = document.getElementById('pred-provincia');
+                sel.innerHTML = '';
+                provs.forEach(p => {
+                    const o = document.createElement('option');
+                    o.value = p.provincia_cod;
+                    o.dataset.nombre = p.provincia;
+                    o.textContent = p.provincia;
+                    sel.appendChild(o);
+                });
+                await cargarCantones();
+            } catch (e) {
+                document.getElementById('pred-provincia').innerHTML = '<option>Error de conexión</option>';
+            }
+        }
+
+        // ── CANTONES ─────────────────────────────────────────────
+        async function cargarCantones() {
+            const sel = document.getElementById('pred-provincia');
+            if (!sel.selectedOptions.length) return;
+            const prov = sel.selectedOptions[0].dataset.nombre;
+            const selC = document.getElementById('pred-canton');
+            selC.innerHTML = '<option>Cargando...</option>';
+            try {
+                const cant = await fetch(`${API}/cantones?provincia=${encodeURIComponent(prov)}`).then(r => r.json());
+                selC.innerHTML = '';
+                cant.forEach(c => {
+                    const o = document.createElement('option');
+                    o.value = c.canton_cod;
+                    o.textContent = c.canton;
+                    selC.appendChild(o);
+                });
+            } catch (e) {
+                selC.innerHTML = '<option>Error</option>';
+            }
+        }
+
+        // ── PREDICCIÓN ───────────────────────────────────────────
+        async function predecir() {
+            const anio = document.getElementById('pred-anio').value;
+            const mes = document.getElementById('pred-mes').value;
+            const provincia = document.getElementById('pred-provincia').value;
+            const canton = document.getElementById('pred-canton').value;
+            const btn = document.getElementById('btnPredictor');
+
+            btn.innerHTML = '⏳ Procesando modelos...';
+            btn.disabled = true;
+
+            try {
+                const [pred, riesgo] = await Promise.all([
+                    fetch(`${API}/prediccion/homicidios?anio=${anio}&mes=${mes}&provincia_cod=${provincia}&canton_cod=${canton}&sexo_cod=0&rango_edad_cod=0&tipo_arma_cod=0&motivacion_cod=0`).then(r => r.json()),
+                    fetch(`${API}/prediccion/riesgo?anio=${anio}&mes=${mes}&provincia_cod=${provincia}&canton_cod=${canton}`).then(r => r.json())
+                ]);
+
+                document.getElementById('res-rf').textContent = Math.round(pred.prediccion_rf);
+                document.getElementById('res-xgb').textContent = Math.round(pred.prediccion_xgb);
+                document.getElementById('res-prom').textContent = Math.round(pred.promedio);
+
+                const badge = document.getElementById('res-riesgo');
+                document.getElementById('res-riesgo-texto').textContent = riesgo.nivel_riesgo;
+                badge.className = `riesgo-badge riesgo-${riesgo.nivel_riesgo}`;
+
+                document.getElementById('resultado').classList.add('show');
+            } catch (e) {
+                alert('🚨 Error al conectar con el Motor Predictivo. Verifica que la API esté corriendo en localhost:8000');
+            } finally {
+                btn.innerHTML = 'Generar Proyección de Homicidios';
+                btn.disabled = false;
+            }
+        }
+
+        // ── INIT ─────────────────────────────────────────────────
+        window.onload = () => {
+            cargarKPIs();
+            cargarProvincias();
+        };
+    </script>
+</body>
+
+</html>

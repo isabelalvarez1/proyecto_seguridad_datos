@@ -1,0 +1,8 @@
+INPUT: BASE_DIR (búsqueda: 'homicid*')
+OUT_FILE: C:\Users\Administrador\Documents\Carolina\ArticuloCientífico\proyecto_ecuador_datos\data\staging_unificados\mdi_homicidios_unificado.csv
+------------------------------------------------------------
+✅ mdi_homicidios_intencionales_pm_2014_2024.xlsx | año=2014 | filas=30,538 | cols=35
+✅ MDI_HomicidiosIntencionalse_PM_2025_Enero_Noviembre.xlsx | año=2025 | filas=8,393 | cols=34
+
+TOTAL filas: 38,931
+TOTAL columnas: 35

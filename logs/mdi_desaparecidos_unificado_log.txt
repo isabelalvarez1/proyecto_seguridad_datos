@@ -1,0 +1,8 @@
+INPUT: BASE_DIR (búsqueda: 'desaparecid*')
+OUT_FILE: C:\Users\Administrador\Documents\Carolina\ArticuloCientífico\proyecto_ecuador_datos\data\staging_unificados\mdi_desaparecidos_unificado.csv
+------------------------------------------------------------
+✅ MDI_PersonasDesaparecidas_PM_2017_2024.xlsx | año=2017 | filas=68,718 | cols=23
+✅ MDI_PersonasDesaparecidas_PM_2025_Enero_Noviembre.xlsx | año=2025 | filas=6,743 | cols=27
+
+TOTAL filas: 75,461
+TOTAL columnas: 32

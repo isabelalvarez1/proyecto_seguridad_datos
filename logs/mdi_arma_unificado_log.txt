@@ -1,0 +1,8 @@
+INPUT: C:\Users\Administrador\Documents\Carolina\ArticuloCientífico\proyecto_ecuador_datos\data\mdi_arma
+OUT_FILE: C:\Users\Administrador\Documents\Carolina\ArticuloCientífico\proyecto_ecuador_datos\data\staging_unificados\mdi_arma_unificado.csv
+------------------------------------------------------------
+✅ MDI_ArmasIlicitas_PM_2025_Enero_Noviembre.xlsx | año=2025 | filas=9,900 | cols=28
+✅ MDI_ArmasIlicitas_PM_Historico_2017_2024.xlsx | año=2017 | filas=59,788 | cols=32
+
+TOTAL filas: 69,688
+TOTAL columnas: 32

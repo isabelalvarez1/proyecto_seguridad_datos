@@ -1,0 +1,15 @@
+ENEMDU_DIR: C:\Users\Administrador\Documents\Carolina\ArticuloCientífico\proyecto_ecuador_datos\data\enemdu
+OUT_FILE: C:\Users\Administrador\Documents\Carolina\ArticuloCientífico\proyecto_ecuador_datos\data\staging_unificados\enemdu_unificado.csv
+------------------------------------------------------------
+✅ 2017_EnemduBDD.csv | año=2017 | filas=110,283 | cols=314
+✅ 2018_enemdubdd.csv | año=2018 | filas=59,350 | cols=158
+✅ 2019_enemdu_persona.csv | año=2019 | filas=59,208 | cols=156
+✅ 2020_enemdu_persona.csv | año=2020 | filas=30,646 | cols=165
+✅ 2021_BDDenemdu_personas.csv | año=2021 | filas=361,790 | cols=152
+✅ 2022_BDDenemdu_personas.csv | año=2022 | filas=358,096 | cols=140
+✅ 2023_BDDenemdu_personas.csv | año=2023 | filas=345,174 | cols=142
+✅ 2024_BDDenemdu_personas.csv | año=2024 | filas=341,394 | cols=140
+✅ 2025_enemdu_persona_II_trimeste.csv | año=2025 | filas=84,067 | cols=144
+------------------------------------------------------------
+TOTAL filas: 1,750,008
+TOTAL columnas: 352

@@ -1,0 +1,14 @@
+EDG_DIR: C:\Users\Administrador\Documents\Carolina\ArticuloCientífico\proyecto_ecuador_datos\data\edg
+OUT_FILE: C:\Users\Administrador\Documents\Carolina\ArticuloCientífico\proyecto_ecuador_datos\data\staging_unificados\edg_unificado.csv
+------------------------------------------------------------
+✅ BBD_EDG_2017_spss.csv | año=2017 | filas=70,841 | cols=45
+✅ BDD_EDG_2019.csv | año=2019 | filas=75,355 | cols=46
+✅ EDG_2018.csv | año=2018 | filas=72,789 | cols=46
+✅ EDG_2020_act.csv | año=2020 | filas=117,030 | cols=45
+✅ edg_2021_csv.csv | año=2021 | filas=107,648 | cols=46
+✅ edg_2022_csv.csv | año=2022 | filas=91,954 | cols=46
+✅ edg_2023_csv.csv | año=2023 | filas=89,877 | cols=46
+✅ edg_2024_csv.csv | año=2024 | filas=91,803 | cols=46
+------------------------------------------------------------
+TOTAL filas: 717,297
+TOTAL columnas: 50
