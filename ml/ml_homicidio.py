@@ -40,12 +40,20 @@ def preparar_features(df):
     print("🔧 Preparando features...")
 
     # Encoding de variables categóricas
-    df['provincia_cod'] = df['provincia'].astype('category').cat.codes
-    df['canton_cod']    = df['canton'].astype('category').cat.codes
-    df['sexo_cod']      = df['sexo'].astype('category').cat.codes
-    df['rango_edad_cod']= df['rango_edad'].astype('category').cat.codes
-    df['tipo_arma_cod'] = df['tipo_arma'].astype('category').cat.codes
-    df['motivacion_cod']= df['motivacion'].astype('category').cat.codes
+    categorical_cols = {
+        'provincia': 'provincia_cod',
+        'canton': 'canton_cod',
+        'sexo': 'sexo_cod',
+        'rango_edad': 'rango_edad_cod',
+        'tipo_arma': 'tipo_arma_cod',
+        'motivacion': 'motivacion_cod',
+    }
+
+    mappings = {}
+    for col, cod_col in categorical_cols.items():
+        cat = df[col].astype('category')
+        df[cod_col] = cat.cat.codes
+        mappings[col] = dict(enumerate(cat.cat.categories))
 
     # Features y target
     X = df[['anio', 'mes', 'provincia_cod', 'canton_cod',
@@ -53,10 +61,10 @@ def preparar_features(df):
     y = df['total_homicidios']
 
     print(f"✅ Features: {X.shape[1]} variables")
-    return X, y, df
+    return X, y, df, mappings
 
 # ── 3. Entrenar modelos ───────────────────────────────────
-def entrenar_modelos(X, y):
+def entrenar_modelos(X, y, mappings):
     print("\n🤖 Entrenando modelos...")
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -86,11 +94,12 @@ def entrenar_modelos(X, y):
     print(f"   RMSE: {np.sqrt(mean_squared_error(y_test, y_pred_xgb)):.2f}")
     print(f"   R²:   {r2_score(y_test, y_pred_xgb):.4f}")
 
-    # ── Guardar modelos ───────────────────────────────────
+    # ── Guardar modelos + mappings ────────────────────────
     os.makedirs('ml/modelos', exist_ok=True)
     joblib.dump(rf,        'ml/modelos/rf_homicidios.pkl')
     joblib.dump(xgb_model, 'ml/modelos/xgb_homicidios.pkl')
-    print("\n✅ Modelos guardados en ml/modelos/")
+    joblib.dump(mappings,  'ml/modelos/mappings_homicidios.pkl')
+    print("\n✅ Modelos y mappings guardados en ml/modelos/")
 
     return rf, xgb_model, X_test, y_test, y_pred_rf, y_pred_xgb
 
@@ -129,9 +138,9 @@ def modelo_homicidios():
     print("\n========================================")
     print("🤖 MODELO PREDICTIVO DE HOMICIDIOS")
     print("========================================")
-    df                                                    = cargar_datos()
-    X, y, df                                              = preparar_features(df)
-    rf, xgb_m, X_test, y_test, y_pred_rf, y_pred_xgb     = entrenar_modelos(X, y)
+    df                                                        = cargar_datos()
+    X, y, df, mappings                                        = preparar_features(df)
+    rf, xgb_m, X_test, y_test, y_pred_rf, y_pred_xgb         = entrenar_modelos(X, y, mappings)
     graficar_resultados(y_test, y_pred_rf, y_pred_xgb)
     print("\n✅ MODELO HOMICIDIOS COMPLETADO!")
 

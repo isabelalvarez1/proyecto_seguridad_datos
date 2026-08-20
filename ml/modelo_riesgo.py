@@ -65,18 +65,21 @@ def preparar_features(df):
     print("🔧 Preparando features para el modelo de clasificación...")
 
     # Encoding de variables categóricas
-    df['provincia_cod'] = df['provincia'].astype('category').cat.codes
-    df['canton_cod']    = df['canton'].astype('category').cat.codes
+    mappings = {}
+    for col in ['provincia', 'canton']:
+        cat = df[col].astype('category')
+        df[f'{col}_cod'] = cat.cat.codes
+        mappings[col] = dict(enumerate(cat.cat.categories))
 
     # Features: predecimos el riesgo basados en la ubicación y el año
     X = df[['anio', 'provincia_cod', 'canton_cod']]
     y = df['riesgo_target']
 
     print(f"✅ Features: {X.shape[1]} variables")
-    return X, y, df
+    return X, y, df, mappings
 
 # ── 4. Entrenar modelo de Clasificación ────────────────────
-def entrenar_modelo(X, y):
+def entrenar_modelo(X, y, mappings):
     print("\n🤖 Entrenando Clasificador Random Forest...")
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -93,10 +96,11 @@ def entrenar_modelo(X, y):
     print("\nReporte Detallado:")
     print(classification_report(y_test, y_pred, labels=[0, 1, 2], target_names=['Bajo', 'Medio', 'Alto'], zero_division=0))
 
-    # ── Guardar modelos ───────────────────────────────────
+    # ── Guardar modelos + mappings ────────────────────────
     os.makedirs('ml/modelos', exist_ok=True)
     joblib.dump(rf_class, 'ml/modelos/rf_clasificador_riesgo.pkl')
-    print("✅ Modelo guardado en ml/modelos/rf_clasificador_riesgo.pkl")
+    joblib.dump(mappings, 'ml/modelos/mappings_riesgo.pkl')
+    print("✅ Modelo y mappings guardados en ml/modelos/")
 
     return rf_class, X_test, y_test, y_pred
 
@@ -139,8 +143,8 @@ def modelo_riesgo():
     df = cargar_datos()
     df, modelo_kmeans = definir_nivel_riesgo(df)
     
-    X, y, df = preparar_features(df)
-    rf_model, X_test, y_test, y_pred = entrenar_modelo(X, y)
+    X, y, df, mappings = preparar_features(df)
+    rf_model, X_test, y_test, y_pred = entrenar_modelo(X, y, mappings)
     
     graficar_resultados(df, y_test, y_pred)
     print("\n✅ MODELO DE RIESGO COMPLETADO!")

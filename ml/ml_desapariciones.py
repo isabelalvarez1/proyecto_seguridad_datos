@@ -46,9 +46,12 @@ def modelo_clasificacion_localizacion():
     features = ['provincia', 'canton', 'sexo', 'rango_edad', 'etnia']
     df_encoded = df.copy()
     
-    # Convertir a variables numéricas
+    # Convertir a variables numéricas y guardar mappings
+    mappings_clf = {}
     for col in features:
-        df_encoded[col] = df_encoded[col].astype('category').cat.codes
+        cat = df_encoded[col].astype('category')
+        df_encoded[col] = cat.cat.codes
+        mappings_clf[col] = dict(enumerate(cat.cat.categories))
         
     X = df_encoded[features]
     y = df_encoded['is_localizado']
@@ -75,12 +78,13 @@ def modelo_clasificacion_localizacion():
     # 6. Importancia de Variables
     importances = rf_clf.feature_importances_
     
-    # Guardar modelo
+    # Guardar modelo + mappings
     os.makedirs('ml/modelos', exist_ok=True)
     joblib.dump(rf_clf, 'ml/modelos/rf_desapariciones_clasificador.pkl')
+    joblib.dump(mappings_clf, 'ml/modelos/mappings_desapariciones_clf.pkl')
     print("✅ Modelo Clasificador guardado en ml/modelos/")
     
-    return features, importances, cm
+    return features, importances, cm, mappings_clf
 
 # =====================================================================
 # MODELO 2: REGRESIÓN (PRONÓSTICO DE VOLUMEN)
@@ -109,8 +113,11 @@ def modelo_regresion_volumen():
     df = df.fillna(0)
     
     # 2. Preparar Features
-    df['provincia_cod'] = df['provincia'].astype('category').cat.codes
-    df['canton_cod']    = df['canton'].astype('category').cat.codes
+    mappings_reg = {}
+    for col in ['provincia', 'canton']:
+        cat = df[col].astype('category')
+        df[f'{col}_cod'] = cat.cat.codes
+        mappings_reg[col] = dict(enumerate(cat.cat.categories))
     
     X = df[['anio', 'provincia_cod', 'canton_cod']]
     y = df['total_desapariciones']
@@ -131,9 +138,10 @@ def modelo_regresion_volumen():
     
     # Guardar
     joblib.dump(rf_reg, 'ml/modelos/rf_desapariciones_regresor.pkl')
+    joblib.dump(mappings_reg, 'ml/modelos/mappings_desapariciones_reg.pkl')
     print("✅ Modelo Regresor guardado en ml/modelos/")
     
-    return y_test, y_pred
+    return y_test, y_pred, mappings_reg
 
 # =====================================================================
 # GRÁFICOS COMBINADOS
@@ -178,8 +186,8 @@ def modelo_desapariciones():
     print("="*50)
     
     # Ejecutar ambos modelos
-    features, importances, cm = modelo_clasificacion_localizacion()
-    y_test_reg, y_pred_reg = modelo_regresion_volumen()
+    features, importances, cm, mappings_clf = modelo_clasificacion_localizacion()
+    y_test_reg, y_pred_reg, mappings_reg = modelo_regresion_volumen()
     
     # Graficar resultados combinados
     graficar_resultados(features, importances, cm, y_test_reg, y_pred_reg)
