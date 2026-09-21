@@ -1,47 +1,33 @@
-from utils.config import engine, DWH_SCHEMA
+import joblib
 import pandas as pd
+from utils.config import engine, DWH_SCHEMA
+
+m = joblib.load('ml/modelos/mappings_homicidios.pkl')
+print(f'Provincias en mapping: {len(m["provincia"])} | Cantones en mapping: {len(m["canton"])}')
 
 df = pd.read_sql(f"""
-    SELECT provincia, canton
+    SELECT DISTINCT provincia, canton
     FROM {DWH_SCHEMA}.cubo_homicidio
     WHERE anio BETWEEN 2017 AND 2024
+    ORDER BY provincia, canton
 """, engine)
 
-df['provincia_cod'] = df['provincia'].astype('category').cat.codes
-df['canton_cod']    = df['canton'].astype('category').cat.codes
+cantones_inv = {v: k for k, v in m['canton'].items()}
+sin_mapeo = []
+for _, row in df.iterrows():
+    if row['canton'] not in cantones_inv:
+        sin_mapeo.append(f"{row['provincia']} / {row['canton']}")
 
-cats_py = df[['canton', 'canton_cod', 'provincia']].drop_duplicates().sort_values('canton').reset_index(drop=True)
+if sin_mapeo:
+    print(f"\nCantones SIN mapping ({len(sin_mapeo)}):")
+    for c in sin_mapeo:
+        print(f"  - {c}")
+else:
+    print("\nTodos los cantones tienen mapping OK")
 
-df_sql = pd.read_sql(f"""
-    SELECT canton_cod, canton, provincia
-    FROM (
-        SELECT canton, provincia,
-               DENSE_RANK() OVER (ORDER BY canton) - 1 AS canton_cod
-        FROM {DWH_SCHEMA}.cubo_homicidio
-        WHERE anio BETWEEN 2017 AND 2024
-    ) t
-    GROUP BY canton_cod, canton, provincia
-    ORDER BY canton_cod
-""", engine)
-
-print("PYTHON CODES:")
-print(cats_py.head())
-
-print("\nSQL CODES:")
-print(df_sql.head())
-
-# Also let's check what the user's current code does
-df_user = pd.read_sql(f"""
-    SELECT DISTINCT canton_cod, canton, provincia
-    FROM (
-        SELECT ROW_NUMBER() OVER (PARTITION BY canton 
-               ORDER BY canton) - 1 AS canton_cod,
-               canton, provincia
-        FROM {DWH_SCHEMA}.cubo_homicidio
-        WHERE provincia = 'AZUAY'
-    ) t
-    ORDER BY canton
-    LIMIT 5
-""", engine)
-print("\nUSER SQL CODES (AZUAY):")
-print(df_user)
+# Provincias en DB vs mapping
+prov_inv = {v: k for k, v in m['provincia'].items()}
+prov_db = df['provincia'].unique()
+sin_prov = [p for p in prov_db if p not in prov_inv]
+if sin_prov:
+    print(f"\nProvincias SIN mapping: {sin_prov}")

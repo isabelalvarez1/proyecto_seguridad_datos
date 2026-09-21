@@ -104,9 +104,12 @@ def ensure_cols(df: pd.DataFrame, cols) -> pd.DataFrame:
 
 
 def save_fact(fact: pd.DataFrame, table: str) -> None:
-    """Guarda una tabla de hechos en el esquema dwh."""
+    """Guarda una tabla de hechos en el esquema dwh (trunca antes de insertar)."""
+    with engine.connect() as conn:
+        conn.execute(pd.text(f"TRUNCATE TABLE dwh.{table} RESTART IDENTITY"))
+        conn.commit()
     fact.to_sql(table, engine, schema="dwh", if_exists="append", index=False, chunksize=1000)
-    print(f"{table} cargada.")
+    print(f"{table} cargada: {len(fact):,} registros.")
 
 
 # =========================================================

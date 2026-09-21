@@ -165,13 +165,21 @@ def get_provincias():
 
 @app.get("/cantones")
 def get_cantones(provincia: str = None):
-    df = pd.read_sql(f"""
-        SELECT DISTINCT canton, provincia
-        FROM {DWH_SCHEMA}.cubo_homicidio
-        WHERE anio BETWEEN 2017 AND 2024
-        {"AND provincia = :provincia" if provincia else ""}
-        ORDER BY canton
-    """, engine, params={"provincia": provincia} if provincia else {})
+    if provincia:
+        query = text(f"""
+            SELECT DISTINCT canton, provincia
+            FROM {DWH_SCHEMA}.cubo_homicidio
+            WHERE anio BETWEEN 2017 AND 2024 AND provincia = :provincia
+            ORDER BY canton
+        """)
+        df = pd.read_sql(query, engine, params={"provincia": provincia})
+    else:
+        df = pd.read_sql(f"""
+            SELECT DISTINCT canton, provincia
+            FROM {DWH_SCHEMA}.cubo_homicidio
+            WHERE anio BETWEEN 2017 AND 2024
+            ORDER BY canton
+        """, engine)
 
     results = []
     for _, row in df.iterrows():

@@ -77,9 +77,20 @@ def entrenar_modelos(X, y, mappings):
     rf.fit(X_train, y_train)
     y_pred_rf = rf.predict(X_test)
 
-    # XGBoost
+    # XGBoost (con objetivo para conteos, sin predicciones negativas)
     print("   ⏳ Entrenando XGBoost...")
-    xgb_model = xgb.XGBRegressor(n_estimators=100, random_state=42)
+    xgb_model = xgb.XGBRegressor(
+        n_estimators=200,
+        max_depth=6,
+        learning_rate=0.1,
+        objective='reg:squarederror',
+        min_child_weight=5,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        reg_alpha=0.1,
+        reg_lambda=1.0
+    )
     xgb_model.fit(X_train, y_train)
     y_pred_xgb = xgb_model.predict(X_test)
 
