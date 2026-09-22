@@ -724,6 +724,34 @@
             </div>
         </div>
 
+        <!-- HISTORICO ANUAL -->
+        <section class="glass-card animate-in">
+            <div class="section-header">
+                <img src="icons/crecimiento.png" alt="" class="section-icon">
+                <div class="section-info">
+                    <h3>Evolucion Historica de Homicidios</h3>
+                    <p>Tendencia anual de homicidios en Ecuador desde 2014</p>
+                </div>
+            </div>
+            <div style="background:rgba(0,0,0,0.2);border-radius:16px;padding:1rem;">
+                <canvas id="chart-anual"></canvas>
+            </div>
+        </section>
+
+        <!-- TOP PROVINCIAS -->
+        <section class="glass-card animate-in">
+            <div class="section-header">
+                <img src="icons/gestion.png" alt="" class="section-icon">
+                <div class="section-info">
+                    <h3>Homicidios por Provincia</h3>
+                    <p>Top 15 provincias con mayor acumulado historico (2014-2024)</p>
+                </div>
+            </div>
+            <div id="chart-provincias" style="background:rgba(0,0,0,0.2);border-radius:16px;padding:1.2rem;">
+                <div style="color:var(--muted);font-size:0.85rem;">Cargando datos...</div>
+            </div>
+        </section>
+
         <!-- POWER BI -->
         <section class="glass-card animate-in">
             <div class="section-header">
@@ -895,28 +923,102 @@
                     sel.appendChild(o);
                 });
             } catch (e) {
-                document.getElementById('pred-provincia').innerHTML = '<option>Error de conexión</option>';
+                document.getElementById('pred-provincia').innerHTML = '<option>Error de conexion</option>';
             }
         }
 
-        // ── CANTONES ─────────────────────────────────────────────
-        async function cargarCantones() {
-            const sel = document.getElementById('pred-provincia');
-            if (!sel.selectedOptions.length) return;
-            const prov = sel.selectedOptions[0].value;
-            const selC = document.getElementById('pred-canton');
-            selC.innerHTML = '<option>Cargando...</option>';
+        // ── HOMICIDIOS POR PROVINCIA (grafico) ─────────────────
+        async function cargarGraficoProvincias() {
             try {
-                const cant = await fetch(`${API}/cantones?provincia=${encodeURIComponent(prov)}`).then(r => r.json());
-                selC.innerHTML = '';
-                cant.forEach(c => {
-                    const o = document.createElement('option');
-                    o.value = c.canton;
-                    o.textContent = c.canton;
-                    selC.appendChild(o);
+                const data = await fetch(`${API}/homicidios/provincia`).then(r => r.json());
+                const container = document.getElementById('chart-provincias');
+                if (!container) return;
+
+                const maxVal = Math.max(...data.map(d => d.total));
+                container.innerHTML = data.slice(0, 15).map(d => {
+                    const pct = (d.total / maxVal * 100).toFixed(1);
+                    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                        <span style="width:140px;text-align:right;font-size:0.78rem;color:var(--muted);flex-shrink:0;">${d.provincia}</span>
+                        <div style="flex:1;height:18px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;">
+                            <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:4px;"></div>
+                        </div>
+                        <span style="width:60px;font-size:0.78rem;color:var(--text);font-weight:600;">${d.total.toLocaleString('es-EC')}</span>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                console.error('Error grafico provincias:', e);
+            }
+        }
+
+        // ── HOMICIDIOS ANUALES (grafico de lineas) ──────────────
+        async function cargarGraficoAnual() {
+            try {
+                const data = await fetch(`${API}/homicidios/anual`).then(r => r.json());
+                const canvas = document.getElementById('chart-anual');
+                if (!canvas) return;
+
+                const recent = data.filter(d => d.anio >= 2014);
+                const labels = recent.map(d => d.anio);
+                const values = recent.map(d => d.total);
+                const maxVal = Math.max(...values);
+                const minVal = Math.min(...values) * 0.8;
+
+                const ctx = canvas.getContext('2d');
+                const W = canvas.width = canvas.parentElement.clientWidth;
+                const H = canvas.height = 200;
+                const pad = {top: 20, right: 20, bottom: 30, left: 60};
+                const cW = W - pad.left - pad.right;
+                const cH = H - pad.top - pad.bottom;
+
+                ctx.clearRect(0, 0, W, H);
+                ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+                ctx.fillStyle = '#64748b';
+                ctx.font = '10px Poppins, sans-serif';
+                ctx.textAlign = 'center';
+
+                for (let i = 0; i <= 4; i++) {
+                    const y = pad.top + (cH / 4) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(pad.left, y);
+                    ctx.lineTo(W - pad.right, y);
+                    ctx.stroke();
+                    const val = Math.round(maxVal - (maxVal - minVal) * (i / 4));
+                    ctx.textAlign = 'right';
+                    ctx.fillText(val.toLocaleString('es-EC'), pad.left - 8, y + 4);
+                }
+
+                const points = values.map((v, i) => ({
+                    x: pad.left + (cW / (values.length - 1)) * i,
+                    y: pad.top + cH - ((v - minVal) / (maxVal - minVal)) * cH
+                }));
+
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                points.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.strokeStyle = '#2563eb';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                const grad = ctx.createLinearGradient(0, pad.top, 0, H - pad.bottom);
+                grad.addColorStop(0, 'rgba(37,99,235,0.25)');
+                grad.addColorStop(1, 'rgba(37,99,235,0)');
+                ctx.lineTo(points[points.length - 1].x, pad.top + cH);
+                ctx.lineTo(points[0].x, pad.top + cH);
+                ctx.closePath();
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                points.forEach((p, i) => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = '#2563eb';
+                    ctx.fill();
+                    ctx.fillStyle = '#64748b';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(labels[i], p.x, H - 8);
                 });
             } catch (e) {
-                selC.innerHTML = '<option>Error</option>';
+                console.error('Error grafico anual:', e);
             }
         }
 
@@ -960,6 +1062,8 @@
         window.onload = () => {
             cargarKPIs();
             cargarProvincias();
+            cargarGraficoProvincias();
+            cargarGraficoAnual();
         };
     </script>
 </body>
