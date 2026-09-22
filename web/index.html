@@ -701,6 +701,9 @@
         </header>
 
         <!-- KPI CARDS -->
+        <div id="api-status" style="text-align:center;padding:0.5rem;font-size:0.8rem;border-radius:8px;margin-bottom:1rem;display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;">
+            API no detectada. Verifica que python -m uvicorn este corriendo en localhost:8000
+        </div>
         <div class="kpi-grid">
             <div class="kpi-card red animate-in delay-1">
                 <span class="kpi-icon">🔴</span>
@@ -733,8 +736,8 @@
                     <p>Tendencia anual de homicidios en Ecuador desde 2014</p>
                 </div>
             </div>
-            <div style="background:rgba(0,0,0,0.2);border-radius:16px;padding:1rem;">
-                <canvas id="chart-anual"></canvas>
+            <div id="chart-anual" style="background:rgba(0,0,0,0.2);border-radius:16px;padding:1rem;">
+                <div style="color:#64748b;font-size:0.85rem;">Cargando datos...</div>
             </div>
         </section>
 
@@ -887,6 +890,11 @@
     <script>
         const API = 'http://localhost:8000';
 
+        function fmt(n) {
+            if (n == null || isNaN(n)) return '0';
+            return Number(n).toLocaleString('es-EC');
+        }
+
         // ── KPIs ────────────────────────────────────────────────
         async function cargarKPIs() {
             try {
@@ -897,16 +905,15 @@
                     fetch(`${API}/defunciones/anual`).then(r => r.json())
                 ]);
 
-                const fmt = n => n.toLocaleString('es-EC');
-                document.getElementById('kpi-homicidios').textContent = fmt(hom.reduce((s, d) => s + d.total, 0));
-                document.getElementById('kpi-desapariciones').textContent = fmt(des.reduce((s, d) => s + d.total_desapariciones, 0));
-                document.getElementById('kpi-armas').textContent = fmt(arm.reduce((s, d) => s + d.total_armas, 0));
-                document.getElementById('kpi-defunciones').textContent = fmt(def.reduce((s, d) => s + d.total_defunciones, 0));
+                document.getElementById('kpi-homicidios').textContent = fmt(hom.reduce((s, d) => s + (d.total || 0), 0));
+                document.getElementById('kpi-desapariciones').textContent = fmt(des.reduce((s, d) => s + (d.total_desapariciones || 0), 0));
+                document.getElementById('kpi-armas').textContent = fmt(arm.reduce((s, d) => s + (d.total_armas || 0), 0));
+                document.getElementById('kpi-defunciones').textContent = fmt(def.reduce((s, d) => s + (d.total_defunciones || 0), 0));
 
                 document.querySelectorAll('.kpi-value').forEach(el => el.classList.remove('kpi-loading'));
             } catch (e) {
                 console.error('Error KPIs:', e);
-                document.querySelectorAll('.kpi-value').forEach(el => el.textContent = 'N/D');
+                document.querySelectorAll('.kpi-value').forEach(el => { el.textContent = 'N/D'; el.classList.remove('kpi-loading'); });
             }
         }
 
@@ -923,120 +930,74 @@
                     sel.appendChild(o);
                 });
             } catch (e) {
+                console.error('Error provincias:', e);
                 document.getElementById('pred-provincia').innerHTML = '<option>Error de conexion</option>';
             }
         }
 
-        // ── HOMICIDIOS POR PROVINCIA (grafico) ─────────────────
+        // ── HOMICIDIOS POR PROVINCIA (barras HTML) ──────────────
         async function cargarGraficoProvincias() {
             try {
                 const data = await fetch(`${API}/homicidios/provincia`).then(r => r.json());
                 const container = document.getElementById('chart-provincias');
                 if (!container) return;
 
-                const maxVal = Math.max(...data.map(d => d.total));
+                const maxVal = Math.max(...data.map(d => d.total || 1));
                 container.innerHTML = data.slice(0, 15).map(d => {
-                    const pct = (d.total / maxVal * 100).toFixed(1);
-                    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                        <span style="width:140px;text-align:right;font-size:0.78rem;color:var(--muted);flex-shrink:0;">${d.provincia}</span>
-                        <div style="flex:1;height:18px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;">
-                            <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:4px;"></div>
-                        </div>
-                        <span style="width:60px;font-size:0.78rem;color:var(--text);font-weight:600;">${d.total.toLocaleString('es-EC')}</span>
-                    </div>`;
+                    const pct = ((d.total || 0) / maxVal * 100).toFixed(1);
+                    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
+                        '<span style="width:140px;text-align:right;font-size:0.78rem;color:#94a3b8;flex-shrink:0;">' + d.provincia + '</span>' +
+                        '<div style="flex:1;height:18px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;">' +
+                        '<div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#2563eb,#06b6d4);border-radius:4px;"></div></div>' +
+                        '<span style="width:60px;font-size:0.78rem;color:#f1f5f9;font-weight:600;">' + fmt(d.total) + '</span></div>';
                 }).join('');
             } catch (e) {
                 console.error('Error grafico provincias:', e);
             }
         }
 
-        // ── HOMICIDIOS ANUALES (grafico de lineas) ──────────────
+        // ── HOMICIDIOS ANUALES (barras HTML) ─────────────────────
         async function cargarGraficoAnual() {
             try {
                 const data = await fetch(`${API}/homicidios/anual`).then(r => r.json());
-                const canvas = document.getElementById('chart-anual');
-                if (!canvas) return;
+                const container = document.getElementById('chart-anual');
+                if (!container) return;
 
                 const recent = data.filter(d => d.anio >= 2014);
-                const labels = recent.map(d => d.anio);
-                const values = recent.map(d => d.total);
-                const maxVal = Math.max(...values);
-                const minVal = Math.min(...values) * 0.8;
+                const maxVal = Math.max(...recent.map(d => d.total || 1));
 
-                const ctx = canvas.getContext('2d');
-                const W = canvas.width = canvas.parentElement.clientWidth;
-                const H = canvas.height = 200;
-                const pad = {top: 20, right: 20, bottom: 30, left: 60};
-                const cW = W - pad.left - pad.right;
-                const cH = H - pad.top - pad.bottom;
-
-                ctx.clearRect(0, 0, W, H);
-                ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-                ctx.fillStyle = '#64748b';
-                ctx.font = '10px Poppins, sans-serif';
-                ctx.textAlign = 'center';
-
-                for (let i = 0; i <= 4; i++) {
-                    const y = pad.top + (cH / 4) * i;
-                    ctx.beginPath();
-                    ctx.moveTo(pad.left, y);
-                    ctx.lineTo(W - pad.right, y);
-                    ctx.stroke();
-                    const val = Math.round(maxVal - (maxVal - minVal) * (i / 4));
-                    ctx.textAlign = 'right';
-                    ctx.fillText(val.toLocaleString('es-EC'), pad.left - 8, y + 4);
-                }
-
-                const points = values.map((v, i) => ({
-                    x: pad.left + (cW / (values.length - 1)) * i,
-                    y: pad.top + cH - ((v - minVal) / (maxVal - minVal)) * cH
-                }));
-
-                ctx.beginPath();
-                ctx.moveTo(points[0].x, points[0].y);
-                points.forEach(p => ctx.lineTo(p.x, p.y));
-                ctx.strokeStyle = '#2563eb';
-                ctx.lineWidth = 2.5;
-                ctx.stroke();
-
-                const grad = ctx.createLinearGradient(0, pad.top, 0, H - pad.bottom);
-                grad.addColorStop(0, 'rgba(37,99,235,0.25)');
-                grad.addColorStop(1, 'rgba(37,99,235,0)');
-                ctx.lineTo(points[points.length - 1].x, pad.top + cH);
-                ctx.lineTo(points[0].x, pad.top + cH);
-                ctx.closePath();
-                ctx.fillStyle = grad;
-                ctx.fill();
-
-                points.forEach((p, i) => {
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-                    ctx.fillStyle = '#2563eb';
-                    ctx.fill();
-                    ctx.fillStyle = '#64748b';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(labels[i], p.x, H - 8);
-                });
+                container.innerHTML = '<div style="display:flex;align-items:flex-end;gap:6px;height:180px;padding:0 0 30px 0;position:relative;">' +
+                    recent.map(d => {
+                        const h = ((d.total || 0) / maxVal * 140);
+                        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">' +
+                            '<span style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px;">' + fmt(d.total) + '</span>' +
+                            '<div style="width:100%;height:' + h + 'px;background:linear-gradient(180deg,#2563eb,#06b6d4);border-radius:4px 4px 0 0;min-height:2px;"></div>' +
+                            '<span style="font-size:0.65rem;color:#64748b;margin-top:4px;">' + d.anio + '</span></div>';
+                    }).join('') + '</div>';
             } catch (e) {
                 console.error('Error grafico anual:', e);
             }
         }
 
-        // ── PREDICCIÓN ───────────────────────────────────────────
+        // ── PREDICCION ───────────────────────────────────────────
         async function predecir() {
             const anio = document.getElementById('pred-anio').value;
             const mes = document.getElementById('pred-mes').value;
             const provincia = document.getElementById('pred-provincia').value;
             const btn = document.getElementById('btnPredictor');
 
-            btn.innerHTML = '⏳ Procesando modelos...';
+            btn.innerHTML = 'Procesando modelos...';
             btn.disabled = true;
 
             try {
                 const pred = await fetch(`${API}/prediccion/homicidios?provincia=${encodeURIComponent(provincia)}&anio=${anio}&mes=${mes}`).then(r => r.json());
 
                 if (pred.error) {
-                    alert(pred.error);
+                    document.getElementById('res-rf').textContent = '-';
+                    document.getElementById('res-xgb').textContent = '-';
+                    document.getElementById('res-prom').textContent = '-';
+                    document.getElementById('res-riesgo-texto').textContent = pred.error;
+                    document.getElementById('resultado').classList.add('show');
                     return;
                 }
 
@@ -1047,24 +1008,33 @@
                 const nivel = pred.promedio > 100 ? 'ALTO' : pred.promedio > 50 ? 'MEDIO' : 'BAJO';
                 const badge = document.getElementById('res-riesgo');
                 document.getElementById('res-riesgo-texto').textContent = nivel;
-                badge.className = `riesgo-badge riesgo-${nivel}`;
+                badge.className = 'riesgo-badge riesgo-' + nivel;
 
                 document.getElementById('resultado').classList.add('show');
             } catch (e) {
-                alert('Error al conectar con el Motor Predictivo. Verifica que la API esté corriendo en localhost:8000');
+                console.error('Error prediccion:', e);
+                alert('Error al conectar con la API en localhost:8000. Verifica que este corriendo.');
             } finally {
-                btn.innerHTML = 'Generar Proyección de Homicidios';
+                btn.innerHTML = 'Generar Proyeccion de Homicidios';
                 btn.disabled = false;
             }
         }
 
         // ── INIT ─────────────────────────────────────────────────
-        window.onload = () => {
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                await fetch(`${API}/provincias`);
+                document.getElementById('api-status').style.display = 'none';
+            } catch(e) {
+                document.getElementById('api-status').style.display = 'block';
+                document.querySelectorAll('.kpi-value').forEach(el => { el.textContent = 'N/D'; el.classList.remove('kpi-loading'); });
+                return;
+            }
             cargarKPIs();
             cargarProvincias();
             cargarGraficoProvincias();
             cargarGraficoAnual();
-        };
+        });
     </script>
 </body>
 
