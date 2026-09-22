@@ -16,7 +16,9 @@ build/
 *.db
 *.sqlite3
 
-logs/*.log
+logs/
+logs_*.txt
+logs_*.log
 
 ml/modelos/*.pkl
 ml/modelos/*.png
