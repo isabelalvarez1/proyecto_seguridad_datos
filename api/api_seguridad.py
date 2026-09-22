@@ -2,7 +2,8 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from fastapi import FastAPI
+import numpy as np
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 import pandas as pd
@@ -12,7 +13,7 @@ from utils.config import engine, DWH_SCHEMA
 app = FastAPI(
     title="API Seguridad Pública Ecuador",
     description="API para consultar datos y predicciones de seguridad pública",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 # ── CORS ──────────────────────────────────────────────────
@@ -28,13 +29,55 @@ rf_homicidios  = joblib.load('ml/modelos/rf_homicidios.pkl')
 xgb_homicidios = joblib.load('ml/modelos/xgb_homicidios.pkl')
 rf_riesgo      = joblib.load('ml/modelos/rf_clasificador_riesgo.pkl')
 mappings_hom   = joblib.load('ml/modelos/mappings_homicidios.pkl')
+feature_cols   = joblib.load('ml/modelos/features_homicidios.pkl')
 mappings_riesgo = joblib.load('ml/modelos/mappings_riesgo.pkl')
 
-# Invertir mappings: {code: name} → {name: code}
 hom_prov_inv = {v: k for k, v in mappings_hom['provincia'].items()}
-hom_canton_inv = {v: k for k, v in mappings_hom['canton'].items()}
 riesgo_prov_inv = {v: k for k, v in mappings_riesgo['provincia'].items()}
 riesgo_canton_inv = {v: k for k, v in mappings_riesgo['canton'].items()}
+
+
+# ── Helper: calcular features temporales para prediccion ──
+def calcular_features_provincia(provincia: str, anio: int, mes: int) -> pd.DataFrame:
+    df_hist = pd.read_sql(text(f"""
+        SELECT anio, mes, SUM(total_homicidios) AS total_homicidios
+        FROM {DWH_SCHEMA}.cubo_homicidio
+        WHERE provincia = :prov AND (anio < :anio OR (anio = :anio AND mes < :mes))
+        GROUP BY anio, mes
+        ORDER BY anio, mes
+    """), engine, params={"prov": provincia, "anio": anio, "mes": mes})
+
+    if len(df_hist) < 12:
+        return None
+
+    serie = df_hist["total_homicidios"].values.astype(float)
+
+    lag_1  = serie[-1]  if len(serie) >= 1  else 0
+    lag_3  = np.mean(serie[-3:])  if len(serie) >= 3  else np.mean(serie)
+    lag_6  = np.mean(serie[-6:])  if len(serie) >= 6  else np.mean(serie)
+    lag_12 = serie[-12] if len(serie) >= 12 else serie[0]
+
+    media_movil_3 = np.mean(serie[-3:])
+    media_movil_6 = np.mean(serie[-6:])
+
+    serie_anio = df_hist[df_hist["anio"] == anio]["total_homicidios"].values
+    acumulado = float(serie_anio.sum()) if len(serie_anio) > 0 else 0.0
+
+    mismos_meses = df_hist[df_hist["mes"] == mes]["total_homicidios"].values
+    mediana_hist = float(np.median(mismos_meses)) if len(mismos_meses) > 0 else float(np.mean(serie))
+
+    provincia_cod = hom_prov_inv.get(provincia)
+    if provincia_cod is None:
+        return None
+
+    row = {
+        "anio": int(anio), "mes": int(mes), "provincia_cod": int(provincia_cod),
+        "lag_1": float(lag_1), "lag_3": float(lag_3), "lag_6": float(lag_6), "lag_12": float(lag_12),
+        "media_movil_3": float(media_movil_3), "media_movil_6": float(media_movil_6),
+        "acumulado_anio": float(acumulado), "mediana_historica": float(mediana_hist),
+    }
+    return pd.DataFrame([row])[feature_cols]
+
 
 # =========================================================
 # ENDPOINTS DE DATOS
@@ -82,6 +125,19 @@ def homicidios_canton(provincia: str = None):
     return df.to_dict(orient='records')
 
 
+@app.get("/homicidios/mensual")
+def homicidios_mensual(provincia: str):
+    query = text("""
+        SELECT anio, mes, SUM(total_homicidios) AS total
+        FROM dwh.cubo_homicidio
+        WHERE provincia = :provincia
+        GROUP BY anio, mes ORDER BY anio, mes
+    """)
+    df = pd.read_sql(query, engine, params={"provincia": provincia})
+    df = df.astype(object).where(pd.notnull(df), None)
+    return df.to_dict(orient='records')
+
+
 @app.get("/desapariciones/anual")
 def desapariciones_anual():
     df = pd.read_sql(f"""
@@ -120,25 +176,28 @@ def defunciones_anual():
 
 
 # =========================================================
-# ENDPOINTS DE PREDICCIÓN ML
+# ENDPOINTS DE PREDICCION ML
 # =========================================================
 
 @app.get("/prediccion/homicidios")
 def predecir_homicidios(
-    anio: int, mes: int, provincia_cod: int, canton_cod: int,
-    sexo_cod: int = 0, rango_edad_cod: int = 0,
-    tipo_arma_cod: int = 0, motivacion_cod: int = 0
+    provincia: str,
+    anio: int,
+    mes: int,
 ):
-    X = pd.DataFrame([[anio, mes, provincia_cod, canton_cod,
-                        sexo_cod, rango_edad_cod, tipo_arma_cod, motivacion_cod]],
-                      columns=['anio', 'mes', 'provincia_cod', 'canton_cod',
-                               'sexo_cod', 'rango_edad_cod', 'tipo_arma_cod', 'motivacion_cod'])
+    X = calcular_features_provincia(provincia, anio, mes)
+    if X is None:
+        return {"error": "No hay suficiente historial para esta provincia. Se requiere al menos 12 meses de datos."}
+
     pred_rf  = max(0.0, float(rf_homicidios.predict(X)[0]))
     pred_xgb = max(0.0, float(xgb_homicidios.predict(X)[0]))
     return {
-        "prediccion_rf":  round(pred_rf, 2),
-        "prediccion_xgb": round(pred_xgb, 2),
-        "promedio":       round((pred_rf + pred_xgb) / 2, 2)
+        "provincia": provincia,
+        "anio": anio,
+        "mes": mes,
+        "prediccion_rf":  round(pred_rf, 1),
+        "prediccion_xgb": round(pred_xgb, 1),
+        "promedio":       round((pred_rf + pred_xgb) / 2, 1),
     }
 
 
@@ -152,14 +211,14 @@ def predecir_riesgo(anio: int, provincia_cod: int, canton_cod: int, mes: int = 0
 
 
 # =========================================================
-# PROVINCIAS / CANTONES (usando mappings del entrenamiento)
+# PROVINCIAS
 # =========================================================
 
 @app.get("/provincias")
 def get_provincias():
     return [
         {"provincia_cod": code, "provincia": name}
-        for name, code in sorted(hom_prov_inv.items())
+        for name, code in sorted(hom_prov_inv.items(), key=lambda x: x[0])
     ]
 
 
@@ -181,16 +240,4 @@ def get_cantones(provincia: str = None):
             ORDER BY canton
         """, engine)
 
-    results = []
-    for _, row in df.iterrows():
-        canton_name = row['canton']
-        prov_name = row['provincia']
-        canton_code = hom_canton_inv.get(canton_name)
-        if canton_code is not None:
-            results.append({
-                "canton_cod": canton_code,
-                "canton": canton_name,
-                "provincia": prov_name
-            })
-
-    return results
+    return [{"canton": row["canton"], "provincia": row["provincia"]} for _, row in df.iterrows()]
