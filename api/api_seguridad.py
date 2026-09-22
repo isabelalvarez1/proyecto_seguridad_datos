@@ -111,7 +111,7 @@ def defunciones_anual():
     df = pd.read_sql(f"""
         SELECT anio_fallecimiento AS anio,
                SUM(total_defunciones) AS total_defunciones,
-               SUM(total_muertes_violentas) AS muertes_violentas
+               SUM(muertes_violentas) AS muertes_violentas
         FROM {DWH_SCHEMA}.cubo_defuncion
         GROUP BY anio_fallecimiento ORDER BY anio_fallecimiento
     """, engine)
