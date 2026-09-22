@@ -1,1041 +1,219 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIS-SEG — Sistema Inteligente de Seguridad Pública Ecuador</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap">
+    <title>SIS-SEG Ecuador</title>
     <style>
-        :root {
-            --bg: #04080f;
-            --surface: rgba(10, 18, 32, 0.7);
-            --border: rgba(255, 255, 255, 0.07);
-            --blue: #2563eb;
-            --cyan: #06b6d4;
-            --red: #ef4444;
-            --amber: #f59e0b;
-            --green: #22c55e;
-            --purple: #a855f7;
-            --text: #f1f5f9;
-            --muted: #64748b;
-            --glow-blue: 0 0 30px rgba(37, 99, 235, 0.2);
-            --glow-cyan: 0 0 30px rgba(6, 182, 212, 0.2);
-        }
-
-        *,
-        *::before,
-        *::after {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-        body {
-            font-family: 'Poppins', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            overflow-x: hidden;
-            background-image:
-                radial-gradient(ellipse at 10% 0%, rgba(37, 99, 235, 0.12) 0%, transparent 50%),
-                radial-gradient(ellipse at 90% 100%, rgba(6, 182, 212, 0.10) 0%, transparent 50%),
-                radial-gradient(ellipse at 50% 50%, rgba(168, 85, 247, 0.04) 0%, transparent 60%);
-            background-attachment: fixed;
-        }
-
-        /* ── GRID OVERLAY ── */
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            pointer-events: none;
-            background-image:
-                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-            background-size: 60px 60px;
-        }
-
-        /* ── NAVBAR ── */
-        .navbar {
-            position: sticky;
-            top: 0;
-            z-index: 200;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1rem 3rem;
-            background: rgba(4, 8, 15, 0.85);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .nav-brand {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .nav-logo {
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, var(--blue), var(--cyan));
-            display: grid;
-            place-items: center;
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: #fff;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .nav-title {
-            font-family: 'Poppins', sans-serif;
-            font-size: 1rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            background: linear-gradient(90deg, var(--blue), var(--cyan));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .nav-pills {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .nav-pill {
-            padding: 0.3rem 0.9rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            border: 1px solid;
-        }
-
-        .pill-blue {
-            background: rgba(37, 99, 235, 0.1);
-            color: #60a5fa;
-            border-color: rgba(37, 99, 235, 0.3);
-        }
-
-        .pill-green {
-            background: rgba(34, 197, 94, 0.1);
-            color: #4ade80;
-            border-color: rgba(34, 197, 94, 0.3);
-        }
-
-        /* ── WRAPPER ── */
-        .wrapper {
-            position: relative;
-            z-index: 1;
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 3rem 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2.5rem;
-        }
-
-        /* ── HERO ── */
-        .hero {
-            text-align: center;
-            padding: 2rem 0;
-        }
-
-        .hero-eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(6, 182, 212, 0.1);
-            border: 1px solid rgba(6, 182, 212, 0.2);
-            color: var(--cyan);
-            padding: 0.4rem 1rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            margin-bottom: 1.5rem;
-        }
-
-        .hero h1 {
-            font-family: 'Poppins', sans-serif;
-            font-size: clamp(2.5rem, 6vw, 4.5rem);
-            font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 1.2rem;
-        }
-
-        .hero h1 span {
-            background: linear-gradient(135deg, var(--blue) 0%, var(--cyan) 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .hero p {
-            color: var(--muted);
-            font-size: 1.1rem;
-            max-width: 550px;
-            margin: 0 auto;
-        }
-
-        /* ── KPI GRID ── */
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1.2rem;
-        }
-
-        .kpi-card {
-            background: var(--surface);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 1.8rem;
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .kpi-card:hover {
-            transform: translateY(-4px);
-        }
-
-        .kpi-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--accent-color, linear-gradient(90deg, var(--blue), var(--cyan)));
-        }
-
-        .kpi-card.red {
-            --accent-color: linear-gradient(90deg, #ef4444, #f97316);
-        }
-
-        .kpi-card.amber {
-            --accent-color: linear-gradient(90deg, #f59e0b, #eab308);
-        }
-
-        .kpi-card.blue {
-            --accent-color: linear-gradient(90deg, #3b82f6, #06b6d4);
-        }
-
-        .kpi-card.green {
-            --accent-color: linear-gradient(90deg, #22c55e, #10b981);
-        }
-
-        .kpi-icon {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            display: block;
-        }
-
-        .kpi-value {
-            font-family: 'Poppins', sans-serif;
-            font-size: 2.2rem;
-            font-weight: 800;
-            color: #fff;
-            line-height: 1;
-            margin-bottom: 0.4rem;
-        }
-
-        .kpi-label {
-            color: var(--muted);
-            font-size: 0.8rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .kpi-loading {
-            opacity: 0.4;
-            font-style: italic;
-            font-size: 1.2rem;
-        }
-
-        /* ── GLASS CARD ── */
-        .glass-card {
-            background: var(--surface);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 2.5rem;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
-            transition: box-shadow 0.3s;
-        }
-
-        .glass-card:hover {
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), var(--glow-blue);
-        }
-
-        .section-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .section-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, var(--glow-blue), var(--glow-cyan));
-            display: grid;
-            place-items: center;
-            font-size: 1.2rem;
-            flex-shrink: 0;
-        }
-
-        .section-info h3 {
-            font-family: 'Poppins', sans-serif;
-            font-size: 1.3rem;
-            font-weight: 700;
-        }
-
-        .section-info p {
-            color: var(--muted);
-            font-size: 0.85rem;
-            margin-top: 0.2rem;
-        }
-
-        /* ── POWER BI ── */
-        .powerbi-wrap {
-            width: 100%;
-            height: 600px;
-            border-radius: 16px;
-            overflow: hidden;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px dashed rgba(255, 255, 255, 0.15);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .powerbi-wrap iframe {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
-        .pbi-placeholder {
-            text-align: center;
-            color: var(--muted);
-        }
-
-        .pbi-placeholder h4 {
-            color: var(--text);
-            font-size: 1.1rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .pbi-code {
-            background: rgba(37, 99, 235, 0.1);
-            color: #93c5fd;
-            padding: 0.2rem 0.6rem;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 0.85rem;
-        }
-
-        /* ── FORM ── */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 1.2rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .form-group label {
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-        }
-
-        .form-control {
-            background: rgba(0, 0, 0, 0.25);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-            color: #fff;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.95rem;
-            transition: all 0.2s;
-            appearance: none;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--blue);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-            background: rgba(37, 99, 235, 0.05);
-        }
-
-        select.form-control {
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 0.8rem center;
-            background-size: 1em;
-            padding-right: 2.5rem;
-        }
-
-        select.form-control option {
-            background: #0f172a;
-        }
-
-        /* ── BUTTON ── */
-        .btn-predict {
-            width: 100%;
-            padding: 1rem 2rem;
-            border: none;
-            border-radius: 12px;
-            background: linear-gradient(135deg, var(--blue), var(--cyan));
-            color: #fff;
-            font-family: 'Poppins', sans-serif;
-            font-size: 1rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.7rem;
-        }
-
-        .btn-predict:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 24px rgba(6, 182, 212, 0.3);
-        }
-
-        .btn-predict:active {
-            transform: translateY(0);
-        }
-
-        .btn-predict:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* ── RESULTADOS ── */
-        .resultado {
-            display: none;
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid var(--border);
-            animation: fadeUp 0.4s ease-out;
-        }
-
-        .resultado.show {
-            display: block;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.2rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .metric-card {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 1.5rem;
-            text-align: center;
-            transition: transform 0.2s;
-        }
-
-        .metric-card:hover {
-            transform: scale(1.02);
-        }
-
-        .metric-num {
-            font-family: 'Poppins', sans-serif;
-            font-size: 3rem;
-            font-weight: 800;
-            line-height: 1;
-            margin-bottom: 0.5rem;
-        }
-
-        .metric-num.rf {
-            color: var(--purple);
-        }
-
-        .metric-num.xgb {
-            color: var(--green);
-        }
-
-        .metric-num.prom {
-            color: var(--cyan);
-        }
-
-        .metric-lbl {
-            color: var(--muted);
-            font-size: 0.78rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-        }
-
-        .riesgo-wrap {
-            text-align: center;
-        }
-
-        .riesgo-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.6rem;
-            padding: 0.75rem 2rem;
-            border-radius: 30px;
-            font-family: 'Poppins', sans-serif;
-            font-size: 1rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-
-        .riesgo-ALTO {
-            background: linear-gradient(135deg, #ef4444, #b91c1c);
-            border: 1px solid #f87171;
-            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
-        }
-
-        .riesgo-MEDIO {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            border: 1px solid #fbbf24;
-            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
-        }
-
-        .riesgo-BAJO {
-            background: linear-gradient(135deg, #22c55e, #15803d);
-            border: 1px solid #4ade80;
-            box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
-        }
-
-        /* ── ML INFO CARDS ── */
-        .ml-info {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.2rem;
-        }
-
-        .ml-card {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 1.5rem;
-        }
-
-        .ml-card-header {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            margin-bottom: 1rem;
-        }
-
-        .ml-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .ml-card h4 {
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.95rem;
-            font-weight: 700;
-        }
-
-        .ml-card p {
-            color: var(--muted);
-            font-size: 0.82rem;
-            line-height: 1.6;
-        }
-
-        .ml-metric {
-            margin-top: 1rem;
-            font-size: 0.8rem;
-            color: var(--muted);
-        }
-
-        .ml-metric strong {
-            color: var(--text);
-        }
-
-        /* ── FOOTER ── */
-        footer {
-            text-align: center;
-            padding: 2.5rem 1rem;
-            border-top: 1px solid var(--border);
-            color: var(--muted);
-            font-size: 0.82rem;
-            line-height: 1.8;
-        }
-
-        footer strong {
-            color: var(--text);
-        }
-
-        /* ── ANIMATIONS ── */
-        @keyframes fadeUp {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes fadeDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .animate-in {
-            animation: fadeDown 0.6s ease-out both;
-        }
-
-        .delay-1 {
-            animation-delay: 0.1s;
-        }
-
-        .delay-2 {
-            animation-delay: 0.2s;
-        }
-
-        .delay-3 {
-            animation-delay: 0.3s;
-        }
-
-        .delay-4 {
-            animation-delay: 0.4s;
-        }
-
-        /* ── RESPONSIVE ── */
-        @media (max-width: 900px) {
-            .kpi-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .metrics-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .ml-info {
-                grid-template-columns: 1fr;
-            }
-
-            .navbar {
-                padding: 1rem 1.5rem;
-            }
-        }
-
-        @media (max-width: 600px) {
-            .kpi-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .hero h1 {
-                font-size: 2rem;
-            }
-
-            .wrapper {
-                padding: 2rem 1rem;
-            }
-        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:Arial,sans-serif; background:#0a0e1a; color:#e2e8f0; }
+        .wrap { max-width:1200px; margin:0 auto; padding:2rem 1.5rem; }
+        h1 { font-size:2rem; text-align:center; margin-bottom:0.5rem; color:#60a5fa; }
+        .sub { text-align:center; color:#64748b; margin-bottom:2rem; font-size:0.9rem; }
+        .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:2rem; }
+        .kpi { background:#111827; border:1px solid #1e293b; border-radius:12px; padding:1.2rem; text-align:center; }
+        .kpi-val { font-size:1.8rem; font-weight:800; color:#fff; }
+        .kpi-lbl { font-size:0.75rem; color:#64748b; text-transform:uppercase; margin-top:0.3rem; }
+        .card { background:#111827; border:1px solid #1e293b; border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; }
+        .card h3 { color:#60a5fa; margin-bottom:1rem; font-size:1.1rem; }
+        .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+        .bar-label { width:130px; text-align:right; font-size:0.75rem; color:#94a3b8; flex-shrink:0; }
+        .bar-track { flex:1; height:16px; background:#1e293b; border-radius:4px; overflow:hidden; }
+        .bar-fill { height:100%; background:linear-gradient(90deg,#2563eb,#06b6d4); border-radius:4px; }
+        .bar-val { width:55px; font-size:0.75rem; color:#e2e8f0; font-weight:600; }
+        .chart-row { display:flex; align-items:flex-end; gap:4px; height:160px; padding-bottom:25px; }
+        .chart-col { flex:1; display:flex; flex-direction:column; align-items:center; }
+        .chart-col span { font-size:0.6rem; color:#64748b; }
+        .chart-bar { width:100%; background:linear-gradient(180deg,#2563eb,#06b6d4); border-radius:3px 3px 0 0; min-height:2px; }
+        .form-row { display:flex; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; }
+        .form-row label { display:block; font-size:0.75rem; color:#64748b; margin-bottom:0.3rem; }
+        .form-row select, .form-row input { background:#1e293b; border:1px solid #334155; color:#fff; padding:0.6rem; border-radius:8px; font-size:0.9rem; }
+        .btn { width:100%; padding:0.9rem; background:linear-gradient(135deg,#2563eb,#06b6d4); color:#fff; border:none; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer; }
+        .btn:hover { opacity:0.9; }
+        .btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .result { display:none; margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid #1e293b; }
+        .result.show { display:block; }
+        .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1rem; }
+        .metric { background:#1e293b; border-radius:10px; padding:1rem; text-align:center; }
+        .metric .num { font-size:2.2rem; font-weight:800; }
+        .metric .lbl { font-size:0.7rem; color:#64748b; text-transform:uppercase; }
+        .rf { color:#a855f7; }
+        .xgb { color:#22c55e; }
+        .avg { color:#06b6d4; }
+        .badge { display:inline-block; padding:0.5rem 1.5rem; border-radius:20px; font-weight:700; font-size:0.9rem; }
+        .ALTO { background:#7f1d1d; color:#fca5a5; border:1px solid #dc2626; }
+        .MEDIO { background:#78350f; color:#fde68a; border:1px solid #d97706; }
+        .BAJO { background:#14532d; color:#86efac; border:1px solid #16a34a; }
+        .err { color:#f87171; text-align:center; padding:1rem; background:#1c1917; border-radius:8px; margin-bottom:1rem; display:none; }
+        @media(max-width:768px) { .kpi-grid,.metrics { grid-template-columns:1fr; } .form-row { flex-direction:column; } }
     </style>
 </head>
-
 <body>
+<div class="wrap">
+    <h1>Sistema Inteligente de Seguridad Publica</h1>
+    <p class="sub">Ecuador 2017-2024 | Data Warehouse + OLAP + Machine Learning</p>
 
-    <!-- NAVBAR -->
-    <nav class="navbar">
-        <div class="nav-brand">
-            <div class="nav-logo">S</div>
-            <span class="nav-title">SIS-SEG ECUADOR</span>
-        </div>
-        <div class="nav-pills">
-            <span class="nav-pill pill-blue">BI + Machine Learning</span>
-            <span class="nav-pill pill-green">2017 — 2025</span>
-        </div>
-    </nav>
+    <div id="api-err" class="err">API no detectada en localhost:8000</div>
 
-    <div class="wrapper">
-
-        <!-- HERO -->
-        <header class="hero animate-in">
-            <!--<div class="hero-eyebrow">Plataforma Analítica Criminológica</div>-->
-            <h1>Sistema Inteligente de<br><span>Seguridad Pública</span></h1>
-            <p>Análisis histórico, visualización interactiva y predicción con Machine Learning para la toma de
-                decisiones en seguridad pública del Ecuador.</p>
-        </header>
-
-        <!-- KPI CARDS -->
-        <div id="api-status" style="text-align:center;padding:0.5rem;font-size:0.8rem;border-radius:8px;margin-bottom:1rem;display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;">
-            API no detectada. Verifica que python -m uvicorn este corriendo en localhost:8000
-        </div>
-        <div class="kpi-grid">
-            <div class="kpi-card red animate-in delay-1">
-                <span class="kpi-icon">🔴</span>
-                <div class="kpi-value kpi-loading" id="kpi-homicidios">—</div>
-                <div class="kpi-label">Total Homicidios</div>
-            </div>
-            <div class="kpi-card amber animate-in delay-2">
-                <span class="kpi-icon">🟡</span>
-                <div class="kpi-value kpi-loading" id="kpi-desapariciones">—</div>
-                <div class="kpi-label">Desapariciones</div>
-            </div>
-            <div class="kpi-card blue animate-in delay-3">
-                <span class="kpi-icon">🔵</span>
-                <div class="kpi-value kpi-loading" id="kpi-armas">—</div>
-                <div class="kpi-label">Armas Incautadas</div>
-            </div>
-            <div class="kpi-card green animate-in delay-4">
-                <span class="kpi-icon">🟢</span>
-                <div class="kpi-value kpi-loading" id="kpi-defunciones">—</div>
-                <div class="kpi-label">Defunciones</div>
-            </div>
-        </div>
-
-        <!-- HISTORICO ANUAL -->
-        <section class="glass-card animate-in">
-            <div class="section-header">
-                <img src="icons/crecimiento.png" alt="" class="section-icon">
-                <div class="section-info">
-                    <h3>Evolucion Historica de Homicidios</h3>
-                    <p>Tendencia anual de homicidios en Ecuador desde 2014</p>
-                </div>
-            </div>
-            <div id="chart-anual" style="background:rgba(0,0,0,0.2);border-radius:16px;padding:1rem;">
-                <div style="color:#64748b;font-size:0.85rem;">Cargando datos...</div>
-            </div>
-        </section>
-
-        <!-- TOP PROVINCIAS -->
-        <section class="glass-card animate-in">
-            <div class="section-header">
-                <img src="icons/gestion.png" alt="" class="section-icon">
-                <div class="section-info">
-                    <h3>Homicidios por Provincia</h3>
-                    <p>Top 15 provincias con mayor acumulado historico (2014-2024)</p>
-                </div>
-            </div>
-            <div id="chart-provincias" style="background:rgba(0,0,0,0.2);border-radius:16px;padding:1.2rem;">
-                <div style="color:var(--muted);font-size:0.85rem;">Cargando datos...</div>
-            </div>
-        </section>
-
-        <!-- POWER BI -->
-        <section class="glass-card animate-in">
-            <div class="section-header">
-                <img src="icons/crecimiento.png" alt="" class="section-icon">
-                <div class="section-info">
-                    <h3>Dashboard Interactivo Histórico</h3>
-                    <p>Análisis detallado con filtros dinámicos por año, provincia y cantón</p>
-                </div>
-            </div>
-            <div class="powerbi-wrap">
-                <iframe title="proyecto_KPI" width="600" height="373.5"
-                    src="https://app.powerbi.com/view?r=eyJrIjoiNDgxYzA1ZDUtZDIyMC00YjdlLWFlOTktNDk0YjRjZmYwNWIwIiwidCI6IjY4MmE0ZTZhLWE3N2YtNDk1OC1hM2FjLTllMjY2ZDE4YWEzNyIsImMiOjR9"
-                    frameborder="0" allowFullScreen="true">
-                </iframe>
-            </div>
-        </section>
-
-        <!-- PREDICTOR ML -->
-        <section class="glass-card animate-in">
-            <div class="section-header">
-                <img src="icons/bulbo.png" alt="" class="section-icon">
-                <div class="section-info">
-                    <h3>Modelo Predictivo</h3>
-                    <p>Modelos Random Forest y XGBoost entrenados con datos 2017–2024</p>
-                </div>
-            </div>
-
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Año de Predicción</label>
-                    <input type="number" id="pred-anio" class="form-control" value="2026" min="2025" max="2035">
-                </div>
-                <div class="form-group">
-                    <label>Mes</label>
-                    <select id="pred-mes" class="form-control">
-                        <option value="1">Enero</option>
-                        <option value="2">Febrero</option>
-                        <option value="3">Marzo</option>
-                        <option value="4">Abril</option>
-                        <option value="5">Mayo</option>
-                        <option value="6">Junio</option>
-                        <option value="7">Julio</option>
-                        <option value="8" selected>Agosto</option>
-                        <option value="9">Septiembre</option>
-                        <option value="10">Octubre</option>
-                        <option value="11">Noviembre</option>
-                        <option value="12">Diciembre</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Provincia</label>
-                    <select id="pred-provincia" class="form-control">
-                        <option>Cargando provincias...</option>
-                    </select>
-                </div>
-            </div>
-
-            <button class="btn-predict" id="btnPredictor" onclick="predecir()">
-                Generar Proyección de Homicidios
-            </button>
-
-            <!-- RESULTADOS -->
-            <div class="resultado" id="resultado">
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="metric-num rf" id="res-rf">0</div>
-                        <div class="metric-lbl">Random Forest</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-num xgb" id="res-xgb">0</div>
-                        <div class="metric-lbl">XGBoost</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-num prom" id="res-prom">0</div>
-                        <div class="metric-lbl">Proyección Consolidada</div>
-                    </div>
-                </div>
-                <div class="riesgo-wrap">
-                    <div id="res-riesgo" class="riesgo-badge">
-                        <span>⚠️ Nivel de Riesgo:</span>
-                        <strong id="res-riesgo-texto">...</strong>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- INFO MODELOS ML -->
-        <section class="glass-card animate-in">
-            <div class="section-header">
-                <img src="icons/gestion.png" alt="" class="section-icon">
-                <div class="section-info">
-                    <h3>Modelos de Machine Learning Utilizados</h3>
-                    <p>Arquitectura y métricas de rendimiento de los modelos predictivos</p>
-                </div>
-            </div>
-            <div class="ml-info">
-                <div class="ml-card">
-                    <div class="ml-card-header">
-                        <div class="ml-dot" style="background:var(--purple)"></div>
-                        <h4>Random Forest</h4>
-                    </div>
-                    <p>Ensemble de 200 árboles de decision con profundidad maxima de 15, entrenado a nivel provincia-mes.</p>
-                    <div class="ml-metric">Arboles: <strong>200</strong> · R2: <strong>0.94</strong></div>
-                </div>
-                <div class="ml-card">
-                    <div class="ml-card-header">
-                        <div class="ml-dot" style="background:var(--green)"></div>
-                        <h4>XGBoost</h4>
-                    </div>
-                    <p>Gradient Boosting con regularizacion L1/L2 y 300 estimadores, optimizado para conteos de criminalidad.</p>
-                    <div class="ml-metric">Estimadores: <strong>300</strong> · R2: <strong>0.93</strong></div>
-                </div>
-                <div class="ml-card">
-                    <div class="ml-card-header">
-                        <div class="ml-dot" style="background:var(--cyan)"></div>
-                        <h4>Features de Tendencia</h4>
-                    </div>
-                    <p>Lags de 1/3/6/12 meses, medias moviles, acumulado anual y mediana historica por provincia como variables predictoras.</p>
-                    <div class="ml-metric">Periodo: <strong>2017-2024</strong> · 11 features</div>
-                </div>
-            </div>
-        </section>
-
+    <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-val" id="kpi-hom">...</div><div class="kpi-lbl">Homicidios</div></div>
+        <div class="kpi"><div class="kpi-val" id="kpi-des">...</div><div class="kpi-lbl">Desapariciones</div></div>
+        <div class="kpi"><div class="kpi-val" id="kpi-arm">...</div><div class="kpi-lbl">Armas Incautadas</div></div>
+        <div class="kpi"><div class="kpi-val" id="kpi-def">...</div><div class="kpi-lbl">Defunciones</div></div>
     </div>
 
-    <!-- FOOTER -->
-    <footer>
-        <strong>Sistema Inteligente de Seguridad Pública — Ecuador</strong><br>
-        Artículo Científico · Data Warehouse + OLAP + Machine Learning · 2017–2025<br>
-        <span style="color:#334155; margin-top:0.5rem; display:block">Datos: MDI · INEC · Registro Civil · ENEMDU</span>
-    </footer>
+    <div class="card">
+        <h3>Homicidios Anuales</h3>
+        <div id="chart-anual" style="color:#64748b;">Cargando...</div>
+    </div>
 
-    <script>
-        const API = 'http://localhost:8000';
+    <div class="card">
+        <h3>Top 15 Provincias por Homicidios</h3>
+        <div id="chart-provs" style="color:#64748b;">Cargando...</div>
+    </div>
 
-        function fmt(n) {
-            if (n == null || isNaN(n)) return '0';
-            return Number(n).toLocaleString('es-EC');
-        }
+    <div class="card">
+        <h3>Prediccion de Homicidios por Provincia</h3>
+        <div class="form-row">
+            <div><label>Anio</label><input type="number" id="f-anio" value="2026" min="2025" max="2035"></div>
+            <div><label>Mes</label><select id="f-mes">
+                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8" selected>Agosto</option>
+                <option value="9">Septiembre</option><option value="10">Octubre</option>
+                <option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select></div>
+            <div><label>Provincia</label><select id="f-prov"><option>Cargando...</option></select></div>
+        </div>
+        <button class="btn" id="btnPred" onclick="predecir()">Generar Proyeccion</button>
 
-        // ── KPIs ────────────────────────────────────────────────
-        async function cargarKPIs() {
-            try {
-                const [hom, des, arm, def] = await Promise.all([
-                    fetch(`${API}/homicidios/anual`).then(r => r.json()),
-                    fetch(`${API}/desapariciones/anual`).then(r => r.json()),
-                    fetch(`${API}/armas/anual`).then(r => r.json()),
-                    fetch(`${API}/defunciones/anual`).then(r => r.json())
-                ]);
+        <div class="result" id="resultado">
+            <div class="metrics">
+                <div class="metric"><div class="num rf" id="res-rf">-</div><div class="lbl">Random Forest</div></div>
+                <div class="metric"><div class="num xgb" id="res-xgb">-</div><div class="lbl">XGBoost</div></div>
+                <div class="metric"><div class="num avg" id="res-avg">-</div><div class="lbl">Proyeccion</div></div>
+            </div>
+            <div style="text-align:center;"><span class="badge" id="res-badge">-</span></div>
+        </div>
+    </div>
 
-                document.getElementById('kpi-homicidios').textContent = fmt(hom.reduce((s, d) => s + (d.total || 0), 0));
-                document.getElementById('kpi-desapariciones').textContent = fmt(des.reduce((s, d) => s + (d.total_desapariciones || 0), 0));
-                document.getElementById('kpi-armas').textContent = fmt(arm.reduce((s, d) => s + (d.total_armas || 0), 0));
-                document.getElementById('kpi-defunciones').textContent = fmt(def.reduce((s, d) => s + (d.total_defunciones || 0), 0));
+    <div class="card">
+        <h3>Modelos ML</h3>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+            <div style="background:#1e293b;border-radius:8px;padding:1rem;">
+                <div style="color:#a855f7;font-weight:700;margin-bottom:0.5rem;">Random Forest</div>
+                <div style="font-size:0.8rem;color:#94a3b8;">200 arboles, profundidad 15. R2=0.94</div>
+            </div>
+            <div style="background:#1e293b;border-radius:8px;padding:1rem;">
+                <div style="color:#22c55e;font-weight:700;margin-bottom:0.5rem;">XGBoost</div>
+                <div style="font-size:0.8rem;color:#94a3b8;">300 estimadores, reg L1/L2. R2=0.93</div>
+            </div>
+            <div style="background:#1e293b;border-radius:8px;padding:1rem;">
+                <div style="color:#06b6d4;font-weight:700;margin-bottom:0.5rem;">11 Features</div>
+                <div style="font-size:0.8rem;color:#94a3b8;">Lags 1/3/6/12 meses, medias moviles, acumulado, mediana historica</div>
+            </div>
+        </div>
+    </div>
 
-                document.querySelectorAll('.kpi-value').forEach(el => el.classList.remove('kpi-loading'));
-            } catch (e) {
-                console.error('Error KPIs:', e);
-                document.querySelectorAll('.kpi-value').forEach(el => { el.textContent = 'N/D'; el.classList.remove('kpi-loading'); });
-            }
-        }
+    <p style="text-align:center;color:#334155;font-size:0.75rem;margin-top:2rem;">Articulo Cientifico - Data Warehouse + OLAP + Machine Learning - 2017-2025</p>
+</div>
 
-        // ── PROVINCIAS ──────────────────────────────────────────
-        async function cargarProvincias() {
-            try {
-                const provs = await fetch(`${API}/provincias`).then(r => r.json());
-                const sel = document.getElementById('pred-provincia');
-                sel.innerHTML = '';
-                provs.forEach(p => {
-                    const o = document.createElement('option');
-                    o.value = p.provincia;
-                    o.textContent = p.provincia;
-                    sel.appendChild(o);
-                });
-            } catch (e) {
-                console.error('Error provincias:', e);
-                document.getElementById('pred-provincia').innerHTML = '<option>Error de conexion</option>';
-            }
-        }
+<script>
+var API = 'http://localhost:8000';
 
-        // ── HOMICIDIOS POR PROVINCIA (barras HTML) ──────────────
-        async function cargarGraficoProvincias() {
-            try {
-                const data = await fetch(`${API}/homicidios/provincia`).then(r => r.json());
-                const container = document.getElementById('chart-provincias');
-                if (!container) return;
+function fmt(n) { return (n == null || isNaN(n)) ? '0' : Number(n).toLocaleString('es-EC'); }
 
-                const maxVal = Math.max(...data.map(d => d.total || 1));
-                container.innerHTML = data.slice(0, 15).map(d => {
-                    const pct = ((d.total || 0) / maxVal * 100).toFixed(1);
-                    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
-                        '<span style="width:140px;text-align:right;font-size:0.78rem;color:#94a3b8;flex-shrink:0;">' + d.provincia + '</span>' +
-                        '<div style="flex:1;height:18px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;">' +
-                        '<div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#2563eb,#06b6d4);border-radius:4px;"></div></div>' +
-                        '<span style="width:60px;font-size:0.78rem;color:#f1f5f9;font-weight:600;">' + fmt(d.total) + '</span></div>';
-                }).join('');
-            } catch (e) {
-                console.error('Error grafico provincias:', e);
-            }
-        }
+function cargarKPIs() {
+    fetch(API + '/homicidios/anual').then(function(r){ return r.json(); }).then(function(d){
+        document.getElementById('kpi-hom').textContent = fmt(d.reduce(function(s,x){ return s+(x.total||0); },0));
+    }).catch(function(){ document.getElementById('kpi-hom').textContent = 'N/D'; });
 
-        // ── HOMICIDIOS ANUALES (barras HTML) ─────────────────────
-        async function cargarGraficoAnual() {
-            try {
-                const data = await fetch(`${API}/homicidios/anual`).then(r => r.json());
-                const container = document.getElementById('chart-anual');
-                if (!container) return;
+    fetch(API + '/desapariciones/anual').then(function(r){ return r.json(); }).then(function(d){
+        document.getElementById('kpi-des').textContent = fmt(d.reduce(function(s,x){ return s+(x.total_desapariciones||0); },0));
+    }).catch(function(){ document.getElementById('kpi-des').textContent = 'N/D'; });
 
-                const recent = data.filter(d => d.anio >= 2014);
-                const maxVal = Math.max(...recent.map(d => d.total || 1));
+    fetch(API + '/armas/anual').then(function(r){ return r.json(); }).then(function(d){
+        document.getElementById('kpi-arm').textContent = fmt(d.reduce(function(s,x){ return s+(x.total_armas||0); },0));
+    }).catch(function(){ document.getElementById('kpi-arm').textContent = 'N/D'; });
 
-                container.innerHTML = '<div style="display:flex;align-items:flex-end;gap:6px;height:180px;padding:0 0 30px 0;position:relative;">' +
-                    recent.map(d => {
-                        const h = ((d.total || 0) / maxVal * 140);
-                        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">' +
-                            '<span style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px;">' + fmt(d.total) + '</span>' +
-                            '<div style="width:100%;height:' + h + 'px;background:linear-gradient(180deg,#2563eb,#06b6d4);border-radius:4px 4px 0 0;min-height:2px;"></div>' +
-                            '<span style="font-size:0.65rem;color:#64748b;margin-top:4px;">' + d.anio + '</span></div>';
-                    }).join('') + '</div>';
-            } catch (e) {
-                console.error('Error grafico anual:', e);
-            }
-        }
+    fetch(API + '/defunciones/anual').then(function(r){ return r.json(); }).then(function(d){
+        document.getElementById('kpi-def').textContent = fmt(d.reduce(function(s,x){ return s+(x.total_defunciones||0); },0));
+    }).catch(function(){ document.getElementById('kpi-def').textContent = 'N/D'; });
+}
 
-        // ── PREDICCION ───────────────────────────────────────────
-        async function predecir() {
-            const anio = document.getElementById('pred-anio').value;
-            const mes = document.getElementById('pred-mes').value;
-            const provincia = document.getElementById('pred-provincia').value;
-            const btn = document.getElementById('btnPredictor');
-
-            btn.innerHTML = 'Procesando modelos...';
-            btn.disabled = true;
-
-            try {
-                const pred = await fetch(`${API}/prediccion/homicidios?provincia=${encodeURIComponent(provincia)}&anio=${anio}&mes=${mes}`).then(r => r.json());
-
-                if (pred.error) {
-                    document.getElementById('res-rf').textContent = '-';
-                    document.getElementById('res-xgb').textContent = '-';
-                    document.getElementById('res-prom').textContent = '-';
-                    document.getElementById('res-riesgo-texto').textContent = pred.error;
-                    document.getElementById('resultado').classList.add('show');
-                    return;
-                }
-
-                document.getElementById('res-rf').textContent = Math.round(pred.prediccion_rf);
-                document.getElementById('res-xgb').textContent = Math.round(pred.prediccion_xgb);
-                document.getElementById('res-prom').textContent = Math.round(pred.promedio);
-
-                const nivel = pred.promedio > 100 ? 'ALTO' : pred.promedio > 50 ? 'MEDIO' : 'BAJO';
-                const badge = document.getElementById('res-riesgo');
-                document.getElementById('res-riesgo-texto').textContent = nivel;
-                badge.className = 'riesgo-badge riesgo-' + nivel;
-
-                document.getElementById('resultado').classList.add('show');
-            } catch (e) {
-                console.error('Error prediccion:', e);
-                alert('Error al conectar con la API en localhost:8000. Verifica que este corriendo.');
-            } finally {
-                btn.innerHTML = 'Generar Proyeccion de Homicidios';
-                btn.disabled = false;
-            }
-        }
-
-        // ── INIT ─────────────────────────────────────────────────
-        document.addEventListener('DOMContentLoaded', async function() {
-            try {
-                await fetch(`${API}/provincias`);
-                document.getElementById('api-status').style.display = 'none';
-            } catch(e) {
-                document.getElementById('api-status').style.display = 'block';
-                document.querySelectorAll('.kpi-value').forEach(el => { el.textContent = 'N/D'; el.classList.remove('kpi-loading'); });
-                return;
-            }
-            cargarKPIs();
-            cargarProvincias();
-            cargarGraficoProvincias();
-            cargarGraficoAnual();
+function cargarProvincias() {
+    fetch(API + '/provincias').then(function(r){ return r.json(); }).then(function(d){
+        var sel = document.getElementById('f-prov');
+        sel.innerHTML = '';
+        d.forEach(function(p){
+            var o = document.createElement('option');
+            o.value = p.provincia;
+            o.textContent = p.provincia;
+            sel.appendChild(o);
         });
-    </script>
-</body>
+    }).catch(function(){ document.getElementById('f-prov').innerHTML = '<option>Error</option>'; });
+}
 
+function cargarChartProvincias() {
+    fetch(API + '/homicidios/provincia').then(function(r){ return r.json(); }).then(function(d){
+        var el = document.getElementById('chart-provs');
+        var mx = Math.max.apply(null, d.map(function(x){ return x.total||1; }));
+        el.innerHTML = d.slice(0,15).map(function(x){
+            var pct = ((x.total||0)/mx*100).toFixed(1);
+            return '<div class="bar-row"><span class="bar-label">'+x.provincia+'</span><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%"></div></div><span class="bar-val">'+fmt(x.total)+'</span></div>';
+        }).join('');
+    }).catch(function(){ document.getElementById('chart-provs').textContent = 'Error al cargar'; });
+}
+
+function cargarChartAnual() {
+    fetch(API + '/homicidios/anual').then(function(r){ return r.json(); }).then(function(d){
+        var el = document.getElementById('chart-anual');
+        var recent = d.filter(function(x){ return x.anio >= 2014; });
+        var mx = Math.max.apply(null, recent.map(function(x){ return x.total||1; }));
+        el.innerHTML = '<div class="chart-row">' + recent.map(function(x){
+            var h = ((x.total||0)/mx*130);
+            return '<div class="chart-col"><span>'+fmt(x.total)+'</span><div class="chart-bar" style="height:'+h+'px"></div><span>'+x.anio+'</span></div>';
+        }).join('') + '</div>';
+    }).catch(function(){ document.getElementById('chart-anual').textContent = 'Error al cargar'; });
+}
+
+function predecir() {
+    var anio = document.getElementById('f-anio').value;
+    var mes = document.getElementById('f-mes').value;
+    var prov = document.getElementById('f-prov').value;
+    var btn = document.getElementById('btnPred');
+    btn.textContent = 'Procesando...';
+    btn.disabled = true;
+
+    fetch(API + '/prediccion/homicidios?provincia=' + encodeURIComponent(prov) + '&anio=' + anio + '&mes=' + mes)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        if (d.error) {
+            document.getElementById('res-rf').textContent = '-';
+            document.getElementById('res-xgb').textContent = '-';
+            document.getElementById('res-avg').textContent = '-';
+            document.getElementById('res-badge').textContent = d.error;
+            document.getElementById('res-badge').className = 'badge ALTO';
+            document.getElementById('resultado').classList.add('show');
+            return;
+        }
+        document.getElementById('res-rf').textContent = Math.round(d.prediccion_rf);
+        document.getElementById('res-xgb').textContent = Math.round(d.prediccion_xgb);
+        document.getElementById('res-avg').textContent = Math.round(d.promedio);
+        var nivel = d.promedio > 100 ? 'ALTO' : d.promedio > 50 ? 'MEDIO' : 'BAJO';
+        document.getElementById('res-badge').textContent = 'Nivel: ' + nivel;
+        document.getElementById('res-badge').className = 'badge ' + nivel;
+        document.getElementById('resultado').classList.add('show');
+    })
+    .catch(function(){ alert('Error: API no disponible en localhost:8000'); })
+    .finally(function(){ btn.textContent = 'Generar Proyeccion'; btn.disabled = false; });
+}
+
+fetch(API + '/provincias').then(function(){ document.getElementById('api-err').style.display='none'; }).catch(function(){ document.getElementById('api-err').style.display='block'; });
+cargarKPIs();
+cargarProvincias();
+cargarChartProvincias();
+cargarChartAnual();
+</script>
+</body>
 </html>
