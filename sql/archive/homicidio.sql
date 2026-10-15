@@ -1,4 +1,5 @@
-#### para consultar los campos de una tabla fact###
+-- Referencia histórica; incluye notas, no es una migración ejecutable.
+-- para consultar los campos de una tabla fact
 SELECT column_name, data_type
 FROM information_schema.columns
 WHERE table_name = 'fact_homicidio'

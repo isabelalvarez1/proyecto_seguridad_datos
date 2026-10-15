@@ -55,7 +55,9 @@ def create_dwh():
         estado_civil VARCHAR(100),
         nacionalidad VARCHAR(100),
         instruccion VARCHAR(150),
-        nivel_educativo VARCHAR(150)
+        nivel_educativo VARCHAR(150),
+        genero VARCHAR(100),
+        discapacidad VARCHAR(100)
     );
 
     CREATE TABLE dwh.dim_geo_punto (
@@ -83,7 +85,8 @@ def create_dwh():
         delito_key SERIAL PRIMARY KEY,
         delito VARCHAR(255),
         tipo_delito VARCHAR(255),
-        modalidad VARCHAR(255)
+        modalidad VARCHAR(255),
+        codigo_iccs VARCHAR(255)
     );
 
     CREATE TABLE dwh.dim_motivacion (
@@ -92,7 +95,9 @@ def create_dwh():
         probable_causa_motivada VARCHAR(255),
         motivacion VARCHAR(255),
         motivo_desaparicion VARCHAR(255),
-        motivacion_observada VARCHAR(255)
+        motivacion_observada VARCHAR(255),
+        motivacion_desaparicion_observada VARCHAR(255),
+        presun_motiva_observada VARCHAR(255)
     );
 
     CREATE TABLE dwh.dim_estado_caso (

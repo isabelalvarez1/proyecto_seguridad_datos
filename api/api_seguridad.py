@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 import pandas as pd
 import joblib
-from utils.config import engine, DWH_SCHEMA
+from utils.config import engine, DWH_SCHEMA, PROJECT_ROOT
+from utils.cleaning import canonical_provincia
 
 app = FastAPI(
     title="API Seguridad Pública Ecuador",
@@ -25,12 +26,13 @@ app.add_middleware(
 )
 
 # ── Cargar modelos + mappings ─────────────────────────────
-rf_homicidios  = joblib.load('ml/modelos/rf_homicidios.pkl')
-xgb_homicidios = joblib.load('ml/modelos/xgb_homicidios.pkl')
-rf_riesgo      = joblib.load('ml/modelos/rf_clasificador_riesgo.pkl')
-mappings_hom   = joblib.load('ml/modelos/mappings_homicidios.pkl')
-feature_cols   = joblib.load('ml/modelos/features_homicidios.pkl')
-mappings_riesgo = joblib.load('ml/modelos/mappings_riesgo.pkl')
+MODEL_DIR = PROJECT_ROOT / 'ml' / 'modelos'
+rf_homicidios  = joblib.load(MODEL_DIR / 'rf_homicidios.pkl')
+xgb_homicidios = joblib.load(MODEL_DIR / 'xgb_homicidios.pkl')
+rf_riesgo      = joblib.load(MODEL_DIR / 'rf_clasificador_riesgo.pkl')
+mappings_hom   = joblib.load(MODEL_DIR / 'mappings_homicidios.pkl')
+feature_cols   = joblib.load(MODEL_DIR / 'features_homicidios.pkl')
+mappings_riesgo = joblib.load(MODEL_DIR / 'mappings_riesgo.pkl')
 
 hom_prov_inv = {v: k for k, v in mappings_hom['provincia'].items()}
 riesgo_prov_inv = {v: k for k, v in mappings_riesgo['provincia'].items()}
@@ -39,6 +41,7 @@ riesgo_canton_inv = {v: k for k, v in mappings_riesgo['canton'].items()}
 
 # ── Helper: calcular features temporales para prediccion ──
 def calcular_features_provincia(provincia: str, anio: int, mes: int) -> pd.DataFrame:
+    provincia = canonical_provincia(provincia)
     df_hist = pd.read_sql(text(f"""
         SELECT anio, mes, SUM(total_homicidios) AS total_homicidios
         FROM {DWH_SCHEMA}.cubo_homicidio
@@ -108,6 +111,7 @@ def homicidios_provincia():
 @app.get("/homicidios/canton")
 def homicidios_canton(provincia: str = None):
     if provincia:
+        provincia = canonical_provincia(provincia)
         query = text("""
             SELECT canton, provincia, SUM(total_homicidios) AS total
             FROM dwh.cubo_homicidio
@@ -127,6 +131,7 @@ def homicidios_canton(provincia: str = None):
 
 @app.get("/homicidios/mensual")
 def homicidios_mensual(provincia: str):
+    provincia = canonical_provincia(provincia)
     query = text("""
         SELECT anio, mes, SUM(total_homicidios) AS total
         FROM dwh.cubo_homicidio
@@ -185,6 +190,7 @@ def predecir_homicidios(
     anio: int,
     mes: int,
 ):
+    provincia = canonical_provincia(provincia)
     X = calcular_features_provincia(provincia, anio, mes)
     if X is None:
         return {"error": "No hay suficiente historial para esta provincia. Se requiere al menos 12 meses de datos."}
@@ -225,6 +231,7 @@ def get_provincias():
 @app.get("/cantones")
 def get_cantones(provincia: str = None):
     if provincia:
+        provincia = canonical_provincia(provincia)
         query = text(f"""
             SELECT DISTINCT canton, provincia
             FROM {DWH_SCHEMA}.cubo_homicidio

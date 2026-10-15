@@ -1,3 +1,4 @@
+-- Referencia histórica. La definición vigente está en scripts/create_cubes.py.
 CREATE MATERIALIZED VIEW dwh.cubo_defuncion AS
 SELECT
     dt_fall.anio                          AS anio_fallecimiento,

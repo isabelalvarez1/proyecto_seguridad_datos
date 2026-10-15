@@ -1,7 +1,116 @@
+import re
+
 import pandas as pd
 import numpy as np
 from unidecode import unidecode
 FALSE_NULLS = ["", " ", "  ", "NA", "N/A", "na", "n/a", "null", "NULL", "None", "none", "-", "--"]
+
+# =========================================================
+# Normalización geográfica (provincia / cantón)
+# =========================================================
+# Vocabulario canónico de provincias: clave sin tildes -> nombre mostrado con tildes.
+PROVINCIAS_CANONICAS = {
+    "AZUAY": "AZUAY",
+    "BOLIVAR": "BOLÍVAR",
+    "CARCHI": "CARCHI",
+    "CANAR": "CAÑAR",
+    "COTOPAXI": "COTOPAXI",
+    "CHIMBORAZO": "CHIMBORAZO",
+    "EL ORO": "EL ORO",
+    "ESMERALDAS": "ESMERALDAS",
+    "GUAYAS": "GUAYAS",
+    "IMBABURA": "IMBABURA",
+    "LOJA": "LOJA",
+    "LOS RIOS": "LOS RÍOS",
+    "MANABI": "MANABÍ",
+    "MORONA SANTIAGO": "MORONA SANTIAGO",
+    "NAPO": "NAPO",
+    "ORELLANA": "ORELLANA",
+    "PASTAZA": "PASTAZA",
+    "PICHINCHA": "PICHINCHA",
+    "SANTA ELENA": "SANTA ELENA",
+    "SANTO DOMINGO DE LOS TSACHILAS": "SANTO DOMINGO DE LOS TSÁCHILAS",
+    "SUCUMBIOS": "SUCUMBÍOS",
+    "TUNGURAHUA": "TUNGURAHUA",
+    "ZAMORA CHINCHIPE": "ZAMORA CHINCHIPE",
+    "GALAPAGOS": "GALÁPAGOS",
+    # Valores no provinciales que igual deben homologarse
+    "ZONAS EN ESTUDIO": "ZONAS EN ESTUDIO",
+    "ZONA NO DELIMITADA": "ZONA NO DELIMITADA",
+    "EXTERIOR": "EXTERIOR",
+    "SIN DATO": "SIN_DATO",
+    "SIN_DATO": "SIN_DATO",
+}
+
+# Variantes reales encontradas en las fuentes (clave sin tildes) -> clave canónica.
+PROVINCIAS_ALIASES = {
+    "STO DGO DE LOS TSACHILAS": "SANTO DOMINGO DE LOS TSACHILAS",
+    "STO DOMINGO DE LOS TSACHILAS": "SANTO DOMINGO DE LOS TSACHILAS",
+    "SANTO DOMINGO LOS TSACHILAS": "SANTO DOMINGO DE LOS TSACHILAS",
+    "SANTO DOMINGO TSACHILAS": "SANTO DOMINGO DE LOS TSACHILAS",
+    "STO DGO LOS TSACHILAS": "SANTO DOMINGO DE LOS TSACHILAS",
+    "D SANTO DOMINGO": "SANTO DOMINGO DE LOS TSACHILAS",
+    "GALAPAGO": "GALAPAGOS",
+    "GALAPAOS": "GALAPAGOS",
+    "BOLIVAR ": "BOLIVAR",
+}
+
+
+def collapse_ws(s) -> str:
+    """Colapsa espacios repetidos y recorta los extremos de un texto."""
+    if s is None or (isinstance(s, float) and np.isnan(s)):
+        return None
+    s = str(s)
+    if s.strip() == "" or s.strip().upper() in {"NAN", "NONE", "NULO", "<NA>"}:
+        return None
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _geo_key(v):
+    """Clave comparable: sin tildes, espacios simples, mayúsculas."""
+    s = collapse_ws(v)
+    if s is None:
+        return None
+    return re.sub(r"\s+", " ", unidecode(s)).strip().upper()
+
+
+def canonical_provincia(v):
+    """Devuelve el nombre canónico (con tildes) de una provincia."""
+    k = _geo_key(v)
+    if k is None:
+        return None
+    k = PROVINCIAS_ALIASES.get(k, k)
+    return PROVINCIAS_CANONICAS.get(k, k)
+
+
+def canonical_canton(v):
+    """Colapsa espacios y homologa variantes conocidas del cantón."""
+    canton = collapse_ws(v)
+    if canton is not None and _geo_key(canton) == "DURAN":
+        return "DURÁN"
+    return canton
+
+
+def normalize_geo_frame(df: pd.DataFrame, cols=None) -> pd.DataFrame:
+    """Aplica la normalización geográfica a las columnas indicadas."""
+    df = df.copy()
+    target = [c for c in (cols or df.columns) if c in df.columns]
+    for c in target:
+        if c == "provincia":
+            df[c] = df[c].map(canonical_provincia)
+        else:
+            df[c] = df[c].map(canonical_canton)
+    return df
+
+
+def fill_text_nulls(df: pd.DataFrame, value: str = "SIN_DATO") -> pd.DataFrame:
+    """Sustituye nulos de texto por un valor visible (evita claves nulas en Power BI)."""
+    df = df.copy()
+    text_cols = df.select_dtypes(include=["object", "string", "category"]).columns
+    for c in text_cols:
+        df[c] = df[c].astype("string").fillna(value)
+        df[c] = df[c].astype(object)
+    return df
 
 def minimal_type_fix(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()

@@ -1,15 +1,22 @@
 import pandas as pd
 import gc
 from utils.config import engine
-from utils.dwh_helpers import rango_edad, normalizar_texto as clean_txt
+from utils.dwh_helpers import (
+    rango_edad,
+    normalizar_texto as clean_txt,
+    fill_dim_text,
+    dpa_from_codigos,
+    MESES_ES,
+)
+from utils.cleaning import normalize_geo_frame
 
 
 READ_CHUNKSIZE = 50_000
 WRITE_CHUNKSIZE = 500
 
 
-def read_clean_chunks(table):
-    query = f"SELECT * FROM clean.{table}"
+def read_clean_chunks(table, columns=None):
+    query = f"SELECT {', '.join(columns) if columns else '*'} FROM clean.{table}"
     return pd.read_sql(query, engine, chunksize=READ_CHUNKSIZE)
 
 
@@ -70,7 +77,7 @@ def load_dim_tiempo():
     for tabla, columnas in tablas_fechas.items():
         print(f"  Leyendo {tabla}...")
 
-        for chunk in read_clean_chunks(tabla):
+        for chunk in read_clean_chunks(tabla, columnas):
             for col in columnas:
                 if col in chunk.columns:
                     tmp = pd.DataFrame()
@@ -83,7 +90,7 @@ def load_dim_tiempo():
 
     print("  Leyendo enemdu_limpia...")
 
-    for chunk in read_clean_chunks("enemdu_limpia"):
+    for chunk in read_clean_chunks("enemdu_limpia", ["periodo"]):
         if "periodo" in chunk.columns:
             tmp = pd.DataFrame()
             tmp["fecha"] = pd.to_datetime(
@@ -106,7 +113,9 @@ def load_dim_tiempo():
     dim["anio"] = dim["fecha"].dt.year
     dim["trimestre"] = dim["fecha"].dt.quarter
     dim["mes"] = dim["fecha"].dt.month
-    dim["nombre_mes"] = dim["fecha"].dt.month_name()
+    dim["nombre_mes"] = dim["fecha"].dt.month_name().map(MESES_ES).fillna(
+        dim["fecha"].dt.month_name()
+    )
     dim["dia"] = dim["fecha"].dt.day
     dim["semana"] = dim["fecha"].dt.isocalendar().week.astype(int)
     dim["fecha"] = dim["fecha"].dt.date
@@ -201,11 +210,19 @@ def load_dim_ubicacion():
     print("  Leyendo enemdu_limpia...")
 
     for chunk in read_clean_chunks("enemdu_limpia"):
-        tmp = pd.DataFrame()
-        tmp["codigo_provincia"] = chunk.get("prov")
-        tmp["provincia"] = chunk.get("provincia") if "provincia" in chunk.columns else None
-        tmp["codigo_canton"] = chunk.get("ciudad")
-        tmp["canton"] = chunk.get("ciudad")
+        if "ciudad" not in chunk.columns:
+            del chunk
+            gc.collect()
+            continue
+
+        # ENEMDU no trae nombres de lugar: se resuelven con el catálogo DPA
+        geo = dpa_from_codigos(chunk["ciudad"])
+
+        tmp = pd.DataFrame(index=chunk.index)
+        tmp["codigo_provincia"] = geo["codigo_provincia_join"]
+        tmp["provincia"] = geo["provincia_join"]
+        tmp["codigo_canton"] = geo["codigo_canton_join"]
+        tmp["canton"] = geo["canton_join"]
         tmp["parroquia"] = None
         tmp["distrito"] = None
         tmp["circuito"] = None
@@ -215,11 +232,14 @@ def load_dim_ubicacion():
 
         acumulado.append(clean_txt(tmp).drop_duplicates())
 
-        del chunk, tmp
+        del chunk, tmp, geo
         gc.collect()
 
     dim = pd.concat(acumulado, ignore_index=True)
     dim = clean_txt(dim[cols]).drop_duplicates()
+    # Provincia/cantón homogéneos entre fuentes (MDI, EDG, ENEMDU, DPA)
+    dim = normalize_geo_frame(dim, ["provincia", "canton"])
+    dim = fill_dim_text(dim)
     dim = remove_existing(dim, "dim_ubicacion", cols)
 
     append_dwh(dim, "dim_ubicacion")
@@ -232,14 +252,14 @@ def load_dim_persona():
     cols = [
         "sexo", "genero", "edad", "rango_edad",
         "etnia", "estado_civil", "nacionalidad",
-        "instruccion", "discapacidad"
+        "instruccion", "discapacidad", "nivel_educativo"
     ]
 
     acumulado = []
 
     print("  Leyendo homicidio_limpia...")
 
-    for chunk in read_clean_chunks("homicidio_limpia"):
+    for chunk in read_clean_chunks("homicidio_limpia", ["sexo", "genero", "edad", "etnia", "estado_civil", "nacionalidad", "instruccion", "discapacidad"]):
         tmp = pd.DataFrame()
         tmp["sexo"] = chunk.get("sexo")
         tmp["genero"] = chunk.get("genero")
@@ -258,7 +278,7 @@ def load_dim_persona():
 
     print("  Leyendo mdi_desaparecido_limpia...")
 
-    for chunk in read_clean_chunks("mdi_desaparecido_limpia"):
+    for chunk in read_clean_chunks("mdi_desaparecido_limpia", ["sexo", "edad", "rango_edad", "etnia", "nacionalidad"]):
         tmp = pd.DataFrame()
         tmp["sexo"] = chunk.get("sexo")
         tmp["genero"] = None
@@ -277,7 +297,7 @@ def load_dim_persona():
 
     print("  Leyendo edg_limpia...")
 
-    for chunk in read_clean_chunks("edg_limpia"):
+    for chunk in read_clean_chunks("edg_limpia", ["sexo", "edad", "etnia", "est_civil", "nac_fall", "niv_inst"]):
         tmp = pd.DataFrame()
         tmp["sexo"] = chunk.get("sexo")
         tmp["genero"] = None
@@ -296,7 +316,7 @@ def load_dim_persona():
 
     print("  Leyendo enemdu_limpia...")
 
-    for chunk in read_clean_chunks("enemdu_limpia"):
+    for chunk in read_clean_chunks("enemdu_limpia", ["p02", "p03", "p06", "p10a"]):
         tmp = pd.DataFrame()
         tmp["sexo"] = chunk.get("p02")
         tmp["genero"] = None
@@ -314,7 +334,10 @@ def load_dim_persona():
         gc.collect()
 
     dim = pd.concat(acumulado, ignore_index=True)
+    if "nivel_educativo" not in dim.columns:
+        dim["nivel_educativo"] = None
     dim = clean_txt(dim[cols]).drop_duplicates()
+    dim = fill_dim_text(dim)
     dim = remove_existing(dim, "dim_persona", cols)
 
     append_dwh(dim, "dim_persona")
@@ -428,6 +451,7 @@ def load_dim_arma():
 
     dim = pd.concat(acumulado, ignore_index=True)
     dim = clean_txt(dim[cols]).drop_duplicates()
+    dim = fill_dim_text(dim)
     dim = remove_existing(dim, "dim_arma", cols)
 
     append_dwh(dim, "dim_arma")
@@ -454,6 +478,7 @@ def load_dim_delito():
 
     dim = pd.concat(acumulado, ignore_index=True)
     dim = clean_txt(dim[cols]).drop_duplicates()
+    dim = fill_dim_text(dim)
     dim = remove_existing(dim, "dim_delito", cols)
 
     append_dwh(dim, "dim_delito")
@@ -511,6 +536,7 @@ def load_dim_motivacion():
 
     dim = pd.concat(acumulado, ignore_index=True)
     dim = clean_txt(dim[cols]).drop_duplicates()
+    dim = fill_dim_text(dim)
     dim = remove_existing(dim, "dim_motivacion", cols)
 
     append_dwh(dim, "dim_motivacion")
@@ -535,6 +561,7 @@ def load_dim_estado_caso():
 
     dim = pd.concat(acumulado, ignore_index=True)
     dim = clean_txt(dim[cols]).drop_duplicates()
+    dim = fill_dim_text(dim)
     dim = remove_existing(dim, "dim_estado_caso", cols)
 
     append_dwh(dim, "dim_estado_caso")

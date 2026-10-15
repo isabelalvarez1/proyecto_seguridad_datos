@@ -1,11 +1,23 @@
 import pandas as pd
 from sqlalchemy import text
 from utils.config import engine
+from utils.cleaning import (
+    canonical_provincia,
+    canonical_canton,
+    collapse_ws,
+)
 
 # =========================================================
 # Caché de dimensiones
 # =========================================================
 _DIM_CACHE: dict = {}
+
+MESES_ES = {
+    "January": "Enero", "February": "Febrero", "March": "Marzo",
+    "April": "Abril", "May": "Mayo", "June": "Junio",
+    "July": "Julio", "August": "Agosto", "September": "Septiembre",
+    "October": "Octubre", "November": "Noviembre", "December": "Diciembre",
+}
 
 
 def get_dim(name: str) -> pd.DataFrame:
@@ -59,6 +71,31 @@ def merge_tiempo_multi(h: pd.DataFrame, fecha_map: dict) -> pd.DataFrame:
     return h
 
 
+def _is_text(s: pd.Series) -> bool:
+    return (
+        not pd.api.types.is_numeric_dtype(s)
+        and not pd.api.types.is_datetime64_any_dtype(s)
+        and not pd.api.types.is_bool_dtype(s)
+    )
+
+
+def fill_key_nulls(df: pd.DataFrame, cols) -> pd.DataFrame:
+    """Rellena nulos de texto en las claves de unión (evita filas sin match)."""
+    df = df.copy()
+    for c in cols:
+        if c in df.columns and _is_text(df[c]):
+            try:
+                df[c] = df[c].fillna("SIN_DATO")
+            except (TypeError, ValueError):
+                df[c] = df[c].astype("string").fillna("SIN_DATO").astype(object)
+    return df
+
+
+def fill_dim_text(df: pd.DataFrame) -> pd.DataFrame:
+    """Rellena nulos de TODAS las columnas de texto de una dimensión."""
+    return fill_key_nulls(df, df.columns)
+
+
 def merge_dim(
     h: pd.DataFrame,
     dim_name: str,
@@ -74,7 +111,14 @@ def merge_dim(
     """
     dim = get_dim(dim_name)
     sel = dim if select_cols is None else dim[select_cols]
-    sel = sel.drop_duplicates(subset=join_cols)
+
+    der_cols = list(join_cols)
+    izq_cols = list(left_cols) if left_cols is not None else der_cols
+
+    # Mismo tratamiento de nulos en ambos lados -> mismo resultado que NULL==NULL
+    sel = fill_key_nulls(sel, der_cols)
+    h = fill_key_nulls(h, izq_cols)
+    sel = sel.drop_duplicates(subset=der_cols)
 
     if left_cols is not None:
         return h.merge(sel, left_on=left_cols, right_on=join_cols, how="left")
@@ -140,8 +184,91 @@ def rango_edad(edad):
 
 
 def normalizar_texto(df):
+    """Limpia columnas de texto: espacios colgantes, 'nan'/'None'/NA -> None.
+
+    A diferencia de la versión anterior también cubre el dtype 'string' de pandas,
+    que antes se escapaba al chequeo `dtype == "object"`.
+    """
     for col in df.columns:
-        if df[col].dtype == "object":
-            df[col] = df[col].astype(str).str.strip()
-            df[col] = df[col].replace({"": None, "nan": None, "None": None})
+        if _is_text(df[col]):
+            df[col] = df[col].map(collapse_ws)
     return df
+
+
+# =========================================================
+# Catálogo geográfico (DPA)
+# =========================================================
+def dpa_lookup() -> pd.DataFrame:
+    """Catálogo DPA con nombres canónicos, un registro por código de cantón.
+
+    El DPA local trae nombres con espacios iniciales y un código de cantón
+    duplicado (2201) con dos nombres distintos: se deduplica de forma
+    determinista (orden alfabético) para evitar que los joins dupliquen filas.
+    """
+    if "dpa" not in _DIM_CACHE:
+        df = pd.read_sql(
+            """
+            SELECT DISTINCT ON (codigo_canton)
+                   codigo_canton,
+                   LEFT(codigo_canton, 2) AS codigo_provincia,
+                   nombre_canton,
+                   nombre_provincia
+            FROM catalogo.dpa_ecuador
+            WHERE codigo_canton IS NOT NULL
+              AND codigo_canton <> ''
+            ORDER BY codigo_canton, nombre_canton
+            """,
+            engine,
+        )
+        df["codigo_canton"] = df["codigo_canton"].astype("string").map(collapse_ws)
+        df["codigo_provincia"] = df["codigo_provincia"].astype("string").map(collapse_ws)
+        df["nombre_canton"] = df["nombre_canton"].map(canonical_canton)
+        df["nombre_provincia"] = df["nombre_provincia"].map(canonical_provincia)
+        _DIM_CACHE["dpa"] = df
+    return _DIM_CACHE["dpa"]
+
+
+def dpa_from_codigos(ciudad: pd.Series) -> pd.DataFrame:
+    """Resuelve códigos ENEMDU (6 dígitos) a provincia/cantón canónicos."""
+    cod = ciudad.astype("string").str.strip()
+    cod4 = cod.str.extract(r"^(\d{4})", expand=False)
+    dpa = dpa_lookup().rename(
+        columns={
+            "codigo_canton": "codigo_canton_join",
+            "codigo_provincia": "codigo_provincia_join",
+            "nombre_canton": "canton_join",
+            "nombre_provincia": "provincia_join",
+        }
+    )
+    out = pd.DataFrame({"codigo_canton_join": cod4})
+    out = out.merge(dpa, on="codigo_canton_join", how="left")
+    # Fallback al código de provincia solo cuando el código es un número válido
+    provincia_respaldo = cod.where(cod.str.match(r"^\d{6}$")).str[:2].reset_index(drop=True)
+    out["codigo_provincia_join"] = out["codigo_provincia_join"].fillna(provincia_respaldo)
+    out.index = ciudad.index
+    return out[["codigo_provincia_join", "provincia_join", "codigo_canton_join", "canton_join"]]
+
+
+# =========================================================
+# Utilidades de mantenimiento del DWH
+# =========================================================
+TABLAS_DWH = [
+    "fact_homicidio", "fact_arma", "fact_desaparicion", "fact_defuncion", "fact_enemdu",
+    "dim_tiempo", "dim_ubicacion", "dim_persona", "dim_geo_punto",
+    "dim_arma", "dim_delito", "dim_motivacion", "dim_estado_caso",
+]
+
+
+def truncate_dwh() -> None:
+    """Vacía hechos y dimensiones (los hechos dependen de las dimensiones por FK)."""
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                "TRUNCATE TABLE "
+                + ", ".join(f"dwh.{t}" for t in TABLAS_DWH)
+                + " RESTART IDENTITY CASCADE"
+            )
+        )
+        conn.commit()
+    clear_dim_cache()
+    print("dwh: hechos y dimensiones vaciados.")

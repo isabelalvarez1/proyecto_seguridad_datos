@@ -1,3 +1,4 @@
+-- Referencia histórica. La definición vigente está en scripts/create_cubes.py.
 CREATE MATERIALIZED VIEW dwh.cubo_arma AS
 SELECT
     dt.anio,

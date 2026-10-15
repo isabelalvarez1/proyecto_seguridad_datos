@@ -45,6 +45,7 @@
         .MEDIO { background:#78350f; color:#fde68a; border:1px solid #d97706; }
         .BAJO { background:#14532d; color:#86efac; border:1px solid #16a34a; }
         .err { color:#f87171; text-align:center; padding:1rem; background:#1c1917; border-radius:8px; margin-bottom:1rem; display:none; }
+        .powerbi-frame { width:100%; height:680px; border:0; border-radius:8px; }
         @media(max-width:768px) { .kpi-grid,.metrics { grid-template-columns:1fr; } .form-row { flex-direction:column; } }
     </style>
 </head>
@@ -70,6 +71,12 @@
     <div class="card">
         <h3>Top 15 Provincias por Homicidios</h3>
         <div id="chart-provs" style="color:#64748b;">Cargando...</div>
+    </div>
+
+    <div class="card">
+        <h3>Panel interactivo Power BI</h3>
+        <iframe class="powerbi-frame" title="proyecto_KPI" loading="lazy" allowfullscreen
+            src="https://app.powerbi.com/view?r=eyJrIjoiNDgxYzA1ZDUtZDIyMC00YjdlLWFlOTktNDk0YjRjZmYwNWIwIiwidCI6IjY4MmE0ZTZhLWE3N2YtNDk1OC1hM2FjLTllMjY2ZDE4YWEzNyIsImMiOjR9"></iframe>
     </div>
 
     <div class="card">

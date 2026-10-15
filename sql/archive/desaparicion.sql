@@ -1,4 +1,5 @@
-### obtener los campos de fact_desaparicion
+-- Referencia histórica; incluye notas, no es una migración ejecutable.
+-- obtener los campos de fact_desaparicion
 SELECT column_name, data_type
 FROM information_schema.columns
 WHERE table_schema = 'dwh'

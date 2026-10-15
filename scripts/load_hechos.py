@@ -1,6 +1,8 @@
 import pandas as pd
 import gc
+from sqlalchemy import inspect
 from utils.config import engine
+from utils.cleaning import canonical_provincia, canonical_canton
 from utils.dwh_helpers import (
     rango_edad,
     get_dim,
@@ -11,6 +13,8 @@ from utils.dwh_helpers import (
     merge_geo,
     ensure_cols,
     save_fact,
+    fill_key_nulls,
+    dpa_from_codigos,
 )
 
 # Columnas de dim_ubicacion usadas en los joins
@@ -22,11 +26,22 @@ UBICACION_JOIN_COLS = [
 ]
 
 
+def canon_geo(df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
+    """Normaliza columnas geográficas con la misma regla usada en las dimensiones."""
+    df = df.copy()
+    for col, fn in mapping.items():
+        if col in df.columns:
+            df[col] = df[col].map(fn)
+    return df
+
+
 def load_fact_homicidio():
     print("Cargando fact_homicidio...")
     h = pd.read_sql("SELECT * FROM clean.homicidio_limpia", engine)
 
     h = merge_tiempo(h, "fecha_infraccion")
+
+    h = canon_geo(h, {"provincia": canonical_provincia, "canton": canonical_canton})
 
     h = merge_dim(
         h, "dim_ubicacion",
@@ -86,6 +101,8 @@ def load_fact_arma():
     h["subcircuito_join"] = h.get("nombre_subcircuito")
     h["area"] = h.get("area", None)
 
+    h = canon_geo(h, {"provincia_join": canonical_provincia, "canton_join": canonical_canton})
+
     h = merge_dim(
         h, "dim_ubicacion",
         left_cols=[
@@ -140,6 +157,8 @@ def load_fact_desaparicion():
 
     h["parroquia_join"] = None
     h["area_join"] = h.get("area_hecho", h.get("area", None))
+
+    h = canon_geo(h, {"provincia": canonical_provincia, "canton": canonical_canton})
 
     if "subcircuito" not in h.columns:
         h["subcircuito"] = None
@@ -217,6 +236,8 @@ def load_fact_defuncion():
     h["subcircuito_join"] = None
     h["zona_join"] = None
 
+    h = canon_geo(h, {"prov_fall": canonical_provincia, "cant_fall": canonical_canton})
+
     h = merge_dim(
         h, "dim_ubicacion",
         left_cols=[
@@ -255,6 +276,13 @@ def load_fact_defuncion():
 def load_fact_enemdu():
     print("Cargando fact_enemdu...")
 
+    # save_fact trunca sus tablas; este loader escribe por chunks, así que
+    # trunca explícitamente para que un re-ejecución no duplique registros.
+    with engine.connect() as conn:
+        from sqlalchemy import text as _text
+        conn.execute(_text("TRUNCATE TABLE dwh.fact_enemdu RESTART IDENTITY"))
+        conn.commit()
+
     dim_tiempo = get_dim("dim_tiempo").copy()
     dim_ubicacion = get_dim("dim_ubicacion")
     dim_persona = get_dim("dim_persona")
@@ -262,22 +290,39 @@ def load_fact_enemdu():
     dim_tiempo["fecha"] = pd.to_datetime(dim_tiempo["fecha"])
     dt_dedup = dim_tiempo[["tiempo_key", "fecha"]].drop_duplicates(subset=["fecha"])
 
-    dim_ubicacion_dedup = dim_ubicacion.drop_duplicates(subset=UBICACION_JOIN_COLS)
+    dim_ubicacion_dedup = fill_key_nulls(dim_ubicacion, UBICACION_JOIN_COLS)
+    dim_ubicacion_dedup = dim_ubicacion_dedup.drop_duplicates(subset=UBICACION_JOIN_COLS)
+
     dim_persona_dedup = dim_persona[
         ["persona_key", "sexo", "edad", "rango_edad", "estado_civil", "instruccion"]
-    ].drop_duplicates(subset=["sexo", "edad", "rango_edad", "estado_civil", "instruccion"])
+    ]
+    dim_persona_dedup = fill_key_nulls(
+        dim_persona_dedup,
+        ["sexo", "rango_edad", "estado_civil", "instruccion"],
+    )
+    dim_persona_dedup = dim_persona_dedup.drop_duplicates(
+        subset=["sexo", "edad", "rango_edad", "estado_civil", "instruccion"]
+    )
+
 
     chunk_size = 50000
     total_insertado = 0
 
     total_rows = pd.read_sql("SELECT COUNT(*) FROM clean.enemdu_limpia", engine).iloc[0, 0]
     print(f"Total de registros a procesar: {total_rows}")
-    print(f"Iniciando procesamiento de fact_enemdu en chunks de {chunk_size} registros usando LIMIT/OFFSET...")
+    print(f"Iniciando procesamiento de fact_enemdu en chunks de {chunk_size} registros...")
 
-    for offset in range(0, total_rows, chunk_size):
-        print(f"Leyendo desde offset {offset}...")
-        query = f"SELECT * FROM clean.enemdu_limpia LIMIT {chunk_size} OFFSET {offset}"
-        h = pd.read_sql(query, engine)
+    necesarios = [
+        "periodo", "ciudad", "zona", "area", "p02", "p03", "p06", "p10a",
+        "id_vivienda", "id_hogar", "id_persona", "fexp", "ingrl", "ingpc",
+        "empleo", "desempleo", "subempleo", "sector", "pobreza", "pobreza_extrema",
+    ]
+    disponibles = {col["name"] for col in inspect(engine).get_columns("enemdu_limpia", schema="clean")}
+    columnas = [col for col in necesarios if col in disponibles]
+    query = f"SELECT {', '.join(columnas)} FROM clean.enemdu_limpia"
+
+    for offset, h in enumerate(pd.read_sql(query, engine, chunksize=chunk_size)):
+        print(f"Leyendo chunk {offset + 1}...")
 
         if h.empty:
             break
@@ -286,7 +331,6 @@ def load_fact_enemdu():
             h["fecha_join"] = pd.to_datetime(h["periodo"].astype(str) + "01", format="%Y%m%d", errors="coerce")
             h = h.merge(dt_dedup, left_on="fecha_join", right_on="fecha", how="left")
 
-        h["provincia_join"] = h.get("provincia", None)
         h["parroquia_join"] = None
         h["distrito_join"] = None
         h["circuito_join"] = None
@@ -297,30 +341,43 @@ def load_fact_enemdu():
         if "area" not in h.columns:
             h["area"] = None
 
-        if "prov" not in h.columns:
-            if "ciudad" in h.columns:
-                h["prov"] = h["ciudad"].astype(str).str.zfill(6).str[:2]
-            else:
-                h["prov"] = None
+        # ENEMDU no trae provincia/cantón: se resuelven desde el catálogo DPA
+        if "ciudad" in h.columns:
+            geo = dpa_from_codigos(h["ciudad"])
+            h["prov"] = geo["codigo_provincia_join"]
+            h["provincia_join"] = geo["provincia_join"]
+            h["codigo_canton_join"] = geo["codigo_canton_join"]
+            h["canton_join"] = geo["canton_join"]
+        else:
+            h["prov"] = None
+            h["provincia_join"] = None
+            h["codigo_canton_join"] = None
+            h["canton_join"] = None
 
+        ubic_izq = [
+            "prov", "provincia_join", "codigo_canton_join", "canton_join",
+            "parroquia_join", "distrito_join", "circuito_join",
+            "subcircuito_join", "zona", "area"
+        ]
+        h = fill_key_nulls(h, ubic_izq)
         h = h.merge(
             dim_ubicacion_dedup,
-            left_on=[
-                "prov", "provincia_join", "ciudad", "ciudad", "parroquia_join",
-                "distrito_join", "circuito_join", "subcircuito_join", "zona", "area"
-            ],
+            left_on=ubic_izq,
             right_on=UBICACION_JOIN_COLS,
-            how="left"
+            how="left",
         )
 
         h["edad_join"] = pd.to_numeric(h.get("p03"), errors="coerce")
         h["rango_edad_join"] = h["edad_join"].apply(rango_edad)
 
+        persona_izq = ["p02", "edad_join", "rango_edad_join", "p06", "p10a"]
+        persona_der = ["sexo", "edad", "rango_edad", "estado_civil", "instruccion"]
+        h = fill_key_nulls(h, ["p02", "rango_edad_join", "p06", "p10a"])
         h = h.merge(
             dim_persona_dedup,
-            left_on=["p02", "edad_join", "rango_edad_join", "p06", "p10a"],
-            right_on=["sexo", "edad", "rango_edad", "estado_civil", "instruccion"],
-            how="left"
+            left_on=persona_izq,
+            right_on=persona_der,
+            how="left",
         )
 
         cols_fact = [

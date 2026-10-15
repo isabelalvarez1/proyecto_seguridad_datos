@@ -12,6 +12,10 @@ build/
 .env
 .env.local
 .env.production
+.env.*
+!.env.example
+.venv/
+venv/
 
 *.db
 *.sqlite3
@@ -19,6 +23,7 @@ build/
 logs/
 logs_*.txt
 logs_*.log
+*.log
 
 ml/modelos/*.pkl
 ml/modelos/*.png
@@ -38,3 +43,8 @@ data/**/*.xls
 Thumbs.db
 
 proyecto_KPI.pbix
+*.pbix
+node_modules/
+.pytest_cache/
+.coverage
+htmlcov/

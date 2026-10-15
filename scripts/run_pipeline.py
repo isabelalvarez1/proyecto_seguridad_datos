@@ -3,6 +3,7 @@ Pipeline completo: Dimensiones → Hechos → Cubos OLAP
 Uso:  python scripts/run_pipeline.py
 """
 import sys, time
+import argparse
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
@@ -27,6 +28,7 @@ from scripts.load_hechos import (
     load_fact_enemdu,
 )
 from scripts.create_cubes import refresh_all_cubes
+from utils.dwh_helpers import truncate_dwh
 
 DIMENSIONES = [
     ("dim_tiempo",       load_dim_tiempo),
@@ -49,12 +51,19 @@ HECHOS = [
 
 
 def run(paso="todos"):
+    if paso not in ("todos", "dims", "facts", "cubos"):
+        raise ValueError(f"Paso desconocido: {paso}")
     t0 = time.time()
     print("=" * 60)
     print("  PIPELINE DWH — Ecuador Seguridad Pública")
     print("=" * 60)
 
     if paso in ("todos", "dims"):
+        # Las dimensiones se reconstruyen desde cero: si no se vacían, quedan
+        # filas viejas (p. ej. provincia NULL de ENEMDU) que contaminan los joins.
+        print("\n── RESET DWH ──")
+        truncate_dwh()
+
         print("\n── DIMENSIONES ──")
         for nombre, fn in DIMENSIONES:
             fn()
@@ -73,5 +82,7 @@ def run(paso="todos"):
 
 
 if __name__ == "__main__":
-    paso = sys.argv[1] if len(sys.argv) > 1 else "todos"
-    run(paso)
+    parser = argparse.ArgumentParser(description="Pipeline DWH: dimensiones, hechos y cubos")
+    parser.add_argument("paso", nargs="?", default="todos",
+                        choices=("todos", "dims", "facts", "cubos"))
+    run(parser.parse_args().paso)
