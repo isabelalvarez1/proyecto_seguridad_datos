@@ -50,9 +50,17 @@ HECHOS = [
 ]
 
 
-def run(paso="todos"):
+def run(paso="todos", legacy=False):
     if paso not in ("todos", "dims", "facts", "cubos"):
         raise ValueError(f"Paso desconocido: {paso}")
+    if not legacy:
+        # El nuevo contrato clean conserva nulos/estados y requiere el mart web.
+        # Dimensiones y hechos se publican juntos para no dejar una carga parcial.
+        from scripts.create_analytic_views import create_views
+        from scripts.refresh_dashboard import refresh
+        create_views()
+        refresh()
+        return
     t0 = time.time()
     print("=" * 60)
     print("  PIPELINE DWH — Ecuador Seguridad Pública")
@@ -85,4 +93,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pipeline DWH: dimensiones, hechos y cubos")
     parser.add_argument("paso", nargs="?", default="todos",
                         choices=("todos", "dims", "facts", "cubos"))
-    run(parser.parse_args().paso)
+    parser.add_argument("--legacy", action="store_true", help="Ejecutar explícitamente el cargador histórico, incompatible con el nuevo contrato de clean")
+    args = parser.parse_args()
+    run(args.paso, legacy=args.legacy)

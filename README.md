@@ -8,21 +8,24 @@ cubos OLAP, experimentos de aprendizaje automático, API y una web de consulta.
 
 - Backend: Python, FastAPI, SQLAlchemy y PostgreSQL.
 - Analítica: pandas, scikit-learn y XGBoost.
-- Frontend: HTML, CSS y JavaScript con indicadores desde la API y un informe
-  publicado de Power BI incrustado.
-- La migración a Vue/Vite/Tailwind y gráficos propios es una propuesta futura;
-  aún no está implementada y no requiere Node.js para ejecutar la web actual.
+- Frontend: Vue 3, Vue Router, Vite, Tailwind y Apache ECharts, con diseño claro,
+  filtros compartidos, líneas, matriz de calor, donas y exportaciones.
+- DW de consulta versionado (`dwh.web_*`) con publicación atómica de cargas.
+- La aplicación actual no utiliza Power BI; la página anterior está archivada
+  en `web/legacy/`. El estudio predictivo se muestra separado del dato observado.
 
 ## Arquitectura
 
 ```text
-Archivos locales → raw → clean + catálogo DPA → dimensiones y hechos
-                                              ↓
-                                  cubos materializados dwh.cubo_*
-                                              ↓
-                            vistas dwh.v_cubo_* / API FastAPI
-                                              ↓
-                                 Web y análisis en Power BI
+Archivos → raw → validación → clean + catálogo DPA
+                                ↓
+                     vistas normales analitica.*
+                                ↓
+                    mart dimensional dwh.web_*
+                                ↓
+                     FastAPI /api/v1 → Vue
+
+Estudios temporales → reports/investigacion → evaluación en la web
 ```
 
 ## Estructura
@@ -39,8 +42,10 @@ scripts/                Carga, limpieza y orquestación del DWH
 sql/
   archive/              SQL histórico; no es el mecanismo vigente de despliegue
 tests/                  Pruebas de regresión sin conexión a la base
+analysis/               EDA y limpieza aislada en clean_validacion
+reports/                Resultados locales del análisis (excluidos de Git)
 utils/                  Configuración, normalización, geografía y helpers
-web/                    Página estática e iconos
+web/                    Aplicación Vue, pruebas, configuración Vite y página anterior
 .env.example            Plantilla de configuración sin credenciales
 requirements.txt        Dependencias Python
 ```
@@ -48,9 +53,11 @@ requirements.txt        Dependencias Python
 ## Requisitos e instalación
 
 - Python 3.10 o superior; entorno local utilizado durante el desarrollo: Python 3.13.
+- Node.js compatible con Vite; probado con Node 24. Usar `npm.cmd` en PowerShell.
 - PostgreSQL accesible y permiso para crear/refrescar objetos del esquema `dwh`.
 - Para reconstruir el DWH: tablas `clean` y catálogo `catalogo.dpa_ecuador` preparados.
-- Para arrancar la API: artefactos de los modelos disponibles en `ml/modelos/`.
+- La API actual arranca sin los modelos legados. La evaluación utiliza reportes
+  completados; las rutas predictivas antiguas cargan sus modelos solo al usarlas.
 
 Desde la raíz del proyecto, en PowerShell:
 
@@ -66,29 +73,22 @@ Si ya existe `.env`, edítalo en lugar de sobrescribirlo. Completa `DB_HOST`,
 `utils/config.py` carga ese archivo; las variables del entorno tienen prioridad.
 El archivo real `.env` está excluido de Git.
 
-## Ejecutar con una base y modelos ya preparados
+## Ejecutar con clean preparado
 
-Abre dos terminales desde la raíz con el entorno virtual activado.
-
-**Terminal 1 — API:**
+En `web/`, instalar dependencias: `npm.cmd ci`. Después, desde la raíz:
 
 ```powershell
-python -m uvicorn api.api_seguridad:app --host 127.0.0.1 --port 8000
+python -m scripts.update_dashboard
+python -m scripts.serve_dashboard
 ```
 
-**Terminal 2 — web:**
+- Web: <http://127.0.0.1:8080>
+- API de desarrollo: <http://127.0.0.1:8000/docs>
+- `Ctrl+C` detiene los procesos creados por el lanzador.
+- Producción local (compila y sirve web+API): `python -m scripts.serve_dashboard --production`.
 
-```powershell
-python -m http.server 8080 --bind 127.0.0.1 --directory web
-```
-
-- Web: <http://127.0.0.1:8080/index.html>
-- API y documentación interactiva: <http://127.0.0.1:8000/docs>
-- Detener cada servidor: `Ctrl+C` en su terminal.
-
-La web usa `http://localhost:8000` para consultar la API. El iframe de Power BI
-depende del informe publicado y necesita acceso a Internet; actualizar la base
-local no actualiza automáticamente ese informe.
+La aplicación consulta `/api/v1` relativo al sitio. La configuración y los
+contratos están en [dashboard web y actualización](docs/dashboard_web.md).
 
 ## Preparar o actualizar los datos
 
@@ -103,70 +103,53 @@ python -m scripts.load_raw homicidio
 ```
 
 Las opciones son `homicidio`, `arma`, `desaparecido`, `edg` y `enemdu`.
-La limpieza utiliza `utils/pipeline.py` y los limpiadores específicos de
-`scripts/clean_*.py`. Todavía no hay un comando único que reconstruya todas las
-tablas `clean` y el catálogo desde una descarga nueva: deben prepararse y
-documentarse antes de cargar el DWH.
-
-### Reconstrucción inicial del esquema DWH
-
-**Este comando elimina y recrea las tablas DWH y sus objetos dependientes.**
-Úsalo para una reconstrucción deliberada, no para arrancar la página:
+El catálogo DPA se prepara por separado. El flujo de limpieza aprobado utiliza
+una validación revisada y un comando independiente del DW:
 
 ```powershell
-python -c "from scripts.create_dwh import create_dwh; create_dwh()"
+python -m analysis.run_clean_validation
+python -m scripts.run_clean --validation-run IDENTIFICADOR_REVISADO --plan
+python -m scripts.run_clean --validation-run IDENTIFICADOR_REVISADO --publish
 ```
 
-Con las tablas creadas y las fuentes `clean` preparadas:
+`run_clean` construye primero en `clean_preparacion`, verifica y publica las
+cinco tablas de `clean` juntas. Conserva las tablas previas; no recarga el DW
+ni los cubos. Ver [publicación de clean](docs/publicacion_clean.md) para los
+contratos y tratamientos. Los limpiadores antiguos se mantienen por compatibilidad;
+no sustituyen este flujo de validación y publicación.
+
+### Actualizar el DW y la web con nuevas fuentes
 
 ```powershell
-python -m scripts.run_pipeline todos
+python -m scripts.update_dashboard --from-raw
 ```
 
-`todos` vacía hechos y dimensiones, reconstruye sus claves y refresca los cubos.
-Puede tardar bastante: ENEMDU se procesa en chunks. No ejecutarlo a la vez que
-otro proceso de carga del DWH.
+El comando valida raw actual, publica clean conservando sus versiones, reenlaza
+las vistas administradas y actualiza `dwh.web_*`. Si clean ya está actualizado,
+usar `python -m scripts.update_dashboard` para refrescar solo el mart.
 
-| Paso | Efecto |
-|---|---|
-| `todos` | Vacía el DWH y carga dimensiones, hechos y cubos. |
-| `dims` | Vacía hechos y dimensiones; carga solo dimensiones. Quedan pendientes hechos y cubos. |
-| `facts` | Recarga los hechos usando dimensiones existentes. Queda pendiente refrescar los cubos. |
-| `cubos` | Refresca los cubos y publica las vistas, sin recargar hechos. |
+El mart conserva dos cargas completas y cambia el puntero activo al terminar.
+Una actualización fallida conserva la última carga. Los comandos de arranque
+no reconstruyen datos ni reentrenan modelos automáticamente.
 
-Para actualizar solo los resultados materializados:
+### Compatibilidad histórica
+
+Las tablas, materializadas y vistas `dwh.cubo_*`/`dwh.v_cubo_*` anteriores se
+conservan, pero la web nueva utiliza `dwh.web_*`. `scripts/create_dwh.py` y el
+cargador `run_pipeline --legacy` pertenecen al flujo anterior; no son necesarios
+para inicializar el mart web. `run_pipeline` sin `--legacy` dirige al mart actual.
+
+## Evaluación predictiva
 
 ```powershell
-python -m scripts.run_pipeline cubos
+python -m analysis.run_provincial_study
 ```
 
-### Cubos y Power BI
-
-Existen seis cubos: `homicidio`, `arma`, `desaparicion`, `defuncion`,
-`socioeconomico` y `seguridad_economia`.
-
-- `dwh.cubo_*`: vista materializada que almacena el resultado precalculado.
-- `dwh.v_cubo_*`: vista normal que lee ese resultado sin duplicar su almacenamiento.
-- Para conexiones nuevas de Power BI, utilizar `dwh.v_cubo_*`.
-- Refrescar los cubos no modifica automáticamente su definición SQL. La fuente
-  vigente de esas definiciones es `scripts/create_cubes.py`, no `sql/archive/`.
-
-## Entrenar los modelos que requiere la API
-
-Ejecutar desde la raíz una vez cargados los cubos:
-
-```powershell
-python -m ml.ml_homicidio
-python -c "from ml.modelo_riesgo import modelo_riesgo; modelo_riesgo()"
-```
-
-Para ejecución sin ventanas de gráficos puede establecerse antes:
-`$env:MPLBACKEND='Agg'`. Los archivos resultantes y nombres esperados se describen
-en [ml/modelos/README.md](ml/modelos/README.md).
-
-La API carga los modelos al arrancar: reiniciarla después de reentrenarlos.
-Los resultados experimentales actuales no constituyen una validación temporal
-definitiva para el artículo; véase [docs/reproducibilidad.md](docs/reproducibilidad.md).
+El estudio exporta resultados temporales y modelos experimentales a una carpeta
+versionada de `reports/investigacion/`. La web muestra una evaluación completada
+y marca si su versión de datos difiere del DW actual. `RESEARCH_RUN_ID` permite
+fijar el estudio mostrado. No se promocionan modelos experimentales a producción.
+Los modelos históricos en `ml/modelos/` se mantienen para rutas legadas.
 
 ## Verificación
 
@@ -192,11 +175,22 @@ python -m scripts.diagnostics.diagnose_provincias
 Para revisar el total de homicidios sin confundir filas agregadas con casos:
 
 ```sql
-SELECT SUM(total_homicidios) FROM dwh.v_cubo_homicidio;
+SELECT SUM(registros) FROM dwh.web_fact_seguridad
+WHERE fuente='homicidios'
+  AND batch_id=(SELECT active_batch_id FROM dwh.web_estado WHERE singleton=1);
 ```
 
 ## Documentación
 
+- [Entrega y verificación del dashboard](docs/entrega_dashboard.md)
+- [Dashboard Vue, DW y actualización con nuevos datos](docs/dashboard_web.md)
+- [Protocolo provincial y evaluación predictiva temporal](docs/protocolo_provincia_anio.md)
+- [Resultados y conclusiones del experimento provincial](docs/resultados_estudio_provincial.md)
+- [Vistas normales, selección de variables y tratamiento de faltantes](docs/vistas_analiticas.md)
+- [Resultados de la selección analítica](docs/resultados_seleccion_analitica.md)
+- [Construcción y publicación de clean](docs/publicacion_clean.md)
+- [Resultados del nuevo clean publicado](docs/resultados_clean_20261018.md)
+- [EDA y limpieza de prueba sin actualizar el DW](docs/validacion_clean.md)
 - [Arquitectura y mantenimiento](docs/arquitectura.md)
 - [Cobertura, limitaciones y reproducibilidad científica](docs/reproducibilidad.md)
 - [Datos locales y prerrequisitos](data/README.md)

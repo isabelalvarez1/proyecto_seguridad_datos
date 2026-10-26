@@ -4,18 +4,24 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
 from fastapi import FastAPI, Query
+from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from functools import lru_cache
 from sqlalchemy import text
 import pandas as pd
 import joblib
 from utils.config import engine, DWH_SCHEMA, PROJECT_ROOT
 from utils.cleaning import canonical_provincia
+from api.dashboard import router as dashboard_router
 
 app = FastAPI(
     title="API Seguridad Pública Ecuador",
     description="API para consultar datos y predicciones de seguridad pública",
     version="2.0.0"
 )
+app.include_router(dashboard_router)
 
 # ── CORS ──────────────────────────────────────────────────
 app.add_middleware(
@@ -27,20 +33,31 @@ app.add_middleware(
 
 # ── Cargar modelos + mappings ─────────────────────────────
 MODEL_DIR = PROJECT_ROOT / 'ml' / 'modelos'
-rf_homicidios  = joblib.load(MODEL_DIR / 'rf_homicidios.pkl')
-xgb_homicidios = joblib.load(MODEL_DIR / 'xgb_homicidios.pkl')
-rf_riesgo      = joblib.load(MODEL_DIR / 'rf_clasificador_riesgo.pkl')
-mappings_hom   = joblib.load(MODEL_DIR / 'mappings_homicidios.pkl')
-feature_cols   = joblib.load(MODEL_DIR / 'features_homicidios.pkl')
-mappings_riesgo = joblib.load(MODEL_DIR / 'mappings_riesgo.pkl')
 
-hom_prov_inv = {v: k for k, v in mappings_hom['provincia'].items()}
-riesgo_prov_inv = {v: k for k, v in mappings_riesgo['provincia'].items()}
-riesgo_canton_inv = {v: k for k, v in mappings_riesgo['canton'].items()}
+
+@lru_cache(maxsize=1)
+def load_legacy_models():
+    """Compatibilidad de rutas antiguas; el dashboard nuevo no depende de estos modelos."""
+    global rf_homicidios, xgb_homicidios, rf_riesgo, feature_cols
+    global hom_prov_inv, riesgo_prov_inv, riesgo_canton_inv
+    try:
+        rf_homicidios = joblib.load(MODEL_DIR / 'rf_homicidios.pkl')
+        xgb_homicidios = joblib.load(MODEL_DIR / 'xgb_homicidios.pkl')
+        rf_riesgo = joblib.load(MODEL_DIR / 'rf_clasificador_riesgo.pkl')
+        mappings_hom = joblib.load(MODEL_DIR / 'mappings_homicidios.pkl')
+        feature_cols = joblib.load(MODEL_DIR / 'features_homicidios.pkl')
+        mappings_riesgo = joblib.load(MODEL_DIR / 'mappings_riesgo.pkl')
+    except FileNotFoundError as error:
+        raise HTTPException(503, 'Modelo legado no disponible. Usar la evaluación temporal en /api/v1/evaluation.') from error
+    hom_prov_inv = {v: k for k, v in mappings_hom['provincia'].items()}
+    riesgo_prov_inv = {v: k for k, v in mappings_riesgo['provincia'].items()}
+    riesgo_canton_inv = {v: k for k, v in mappings_riesgo['canton'].items()}
+    return True
 
 
 # ── Helper: calcular features temporales para prediccion ──
 def calcular_features_provincia(provincia: str, anio: int, mes: int) -> pd.DataFrame:
+    load_legacy_models()
     provincia = canonical_provincia(provincia)
     df_hist = pd.read_sql(text(f"""
         SELECT anio, mes, SUM(total_homicidios) AS total_homicidios
@@ -209,6 +226,7 @@ def predecir_homicidios(
 
 @app.get("/prediccion/riesgo")
 def predecir_riesgo(anio: int, provincia_cod: int, canton_cod: int, mes: int = 0):
+    load_legacy_models()
     X = pd.DataFrame([[anio, provincia_cod, canton_cod]],
                       columns=['anio', 'provincia_cod', 'canton_cod'])
     riesgo = rf_riesgo.predict(X)[0]
@@ -222,6 +240,7 @@ def predecir_riesgo(anio: int, provincia_cod: int, canton_cod: int, mes: int = 0
 
 @app.get("/provincias")
 def get_provincias():
+    load_legacy_models()
     return [
         {"provincia_cod": code, "provincia": name}
         for name, code in sorted(hom_prov_inv.items(), key=lambda x: x[0])
@@ -248,3 +267,24 @@ def get_cantones(provincia: str = None):
         """, engine)
 
     return [{"canton": row["canton"], "provincia": row["provincia"]} for _, row in df.iterrows()]
+
+
+@app.get('/health')
+def health():
+    with engine.connect() as conn:
+        conn.execute(text('SELECT 1'))
+    return {'status': 'ok'}
+
+
+DIST = PROJECT_ROOT / 'web' / 'dist'
+if (DIST / 'assets').is_dir():
+    app.mount('/assets', StaticFiles(directory=DIST / 'assets'), name='assets')
+
+
+@app.get('/{path:path}', include_in_schema=False)
+def frontend(path: str):
+    if path.startswith(('api/', 'assets/')):
+        raise HTTPException(404, 'Ruta no encontrada')
+    if not (DIST / 'index.html').is_file():
+        raise HTTPException(503, 'Compilar la web con npm.cmd run build en web/, o usar el servidor Vite en :8080.')
+    return FileResponse(DIST / 'index.html')

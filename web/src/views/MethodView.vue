@@ -1,0 +1,21 @@
+<script setup>
+import { computed } from 'vue'
+import { state } from '../stores/filters.js'
+import { number } from '../lib/format.js'
+import StatusBanner from '../components/StatusBanner.vue'
+import DataTable from '../components/DataTable.vue'
+const coverage = computed(() => Object.entries(state.meta.metadata.coverage).flatMap(([source, years]) => years.map(row => ({ fuente: source, anio: row.anio, meses: row.meses.length, registros: row.registros, cobertura: row.meses.length === 12 ? '12 meses observados' : 'Período parcial' }))))
+</script>
+<template>
+  <div class="page-heading"><div><p class="eyebrow">TRAZABILIDAD Y REPRODUCIBILIDAD</p><h1>Fuentes y metodología</h1><p class="page-description">Qué mide el informe, qué conserva y qué decisiones siguen pendientes.</p></div><span class="period-pill">Contrato de datos v1</span></div>
+  <StatusBanner>Los indicadores muestran registros de las fuentes. No hay población oficial incorporada para estimar tasas por 100.000 habitantes.</StatusBanner>
+  <div class="method-grid">
+    <section class="panel prose"><h2>Del dato al informe</h2><ol><li><strong>raw:</strong> referencia original cargada.</li><li><strong>clean:</strong> conversiones y controles, con originales para auditoría.</li><li><strong>analitica:</strong> selección de variables y derivaciones verificables.</li><li><strong>DW de consulta:</strong> dimensiones de tiempo/territorio y hechos agregados por carga.</li><li><strong>API y dashboard:</strong> filtros coherentes, estados de ausencia y exportación.</li></ol></section>
+    <section class="panel prose"><h2>Cero no es lo mismo que ausencia</h2><p>Un espacio gris en la matriz indica que no hay un registro observado para esa celda. No se convierte automáticamente en cero.</p><p>Los fallos de consulta se muestran como errores, y las cantidades no informadas se mantienen sin dato. No se rellenan con media, moda o uno.</p></section>
+    <section class="panel prose"><h2>Universos que deben respetarse</h2><p>Armas distingue registros y cantidades. Desapariciones conserva estados y seguimiento. Defunciones conserva edad con unidad y clasificaciones pendientes.</p><p>Las categorías y candidatos de duplicación requieren documentación antes de cambiar los conteos. Las coordenadas no se imputan.</p></section>
+    <section class="panel prose"><h2>Contexto y predicción</h2><p>Las proporciones de diciembre son exploratorias. El diseño, los dominios ENEMDU y las versiones deben validarse antes de inferencia provincial oficial.</p><p>La evaluación guardada se separa del dato observado y puede quedar desactualizada al ingresar nuevas fuentes. No se reentrena silenciosamente.</p></section>
+  </div>
+  <section class="panel"><h2>Carga activa</h2><p class="muted mt-2">Identificador: <code>{{ state.meta.batch_id }}</code>. Las consultas usan una sola carga coherente, incluso durante una actualización.</p><div class="version-grid"><div v-for="(count, source) in state.meta.metadata.source_counts" :key="source"><span>{{ source }}</span><strong>{{ number(count) }}</strong><small>{{ state.meta.metadata.source_versions[source] }}</small></div></div><p class="chart-note">ENEMDU sin período: {{ number(state.meta.metadata.context_without_period) }} registros conservados en el DW, fuera de filtros con año conocido.</p></section>
+  <DataTable title="Cobertura observada de las fuentes" scope="Todas las fuentes y años disponibles; sin filtro temporal" :rows="coverage" :columns="[{ key: 'fuente', label: 'Fuente' }, { key: 'anio', label: 'Año' }, { key: 'meses', label: 'Meses observados', numeric: true }, { key: 'registros', label: 'Registros', numeric: true }, { key: 'cobertura', label: 'Cobertura' }]" filename="cobertura_fuentes" />
+  <section class="panel prose"><h2>Actualizar con nuevos datos</h2><p>El flujo valida, publica clean con sus referencias y actualiza el mart de consulta. Una carga fallida no sustituye la última carga completa del dashboard.</p><pre>python -m scripts.update_dashboard --from-raw</pre><p>Si clean ya está publicado y solo necesitas actualizar el DW:</p><pre>python -m scripts.update_dashboard</pre><p>Después, el botón de actualización del informe vuelve a consultar la carga activa. Los estudios predictivos se regeneran mediante su protocolo específico.</p></section>
+</template>

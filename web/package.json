@@ -1,0 +1,26 @@
+{
+  "name": "sis-seg-ecuador",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 8080 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 8080 --strictPort",
+    "test": "node --test tests/*.test.js",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "vue": "^3.5.44",
+    "vue-router": "^4.6.3",
+    "echarts": "^6.1.0",
+    "@lucide/vue": "^1.61.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^8.3.5",
+    "tailwindcss": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.3",
+    "@playwright/test": "^1.64.1"
+  }
+}

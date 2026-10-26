@@ -1,4 +1,5 @@
 import pandas as pd
+from utils.clean_fields import normalize_period
 
 REPLACEMENTS_TEXT = {
     "CIENT?FICOS": "CIENTÍFICOS",
@@ -11,7 +12,7 @@ REPLACEMENTS_TEXT = {
 
 VARS_CODIGO_6 = [
     "ciudad",
-    "p12b", "p15ab", "p17b", "periodo",
+    "p12b", "p15ab", "p17b",
     "ps08a", "ps09a", "ps10a",
     "pt01b", "pt08",
     "seg011", "seg0110", "seg012", "seg013", "seg014", "seg015",
@@ -27,7 +28,7 @@ VARS_CODIGO_4 = [
 
 VARS_CATEGORICAS = [
     "informal", "formal",
-    "p03", "p10b", "p16b", "p24", "p29", "p33", "p39",
+    "p10b", "p16b", "p24", "p29", "p33", "p39",
     "p45", "p47b", "p51a",
     "p61a12", "p61a13", "p61a92",
     "p64b", "p68b",
@@ -57,22 +58,28 @@ def fix_broken_text(value):
 def limpiar_codigos(df, columnas, largo):
     for col in columnas:
         if col in df.columns:
-            num = pd.to_numeric(df[col], errors="coerce")
-            df[col] = num.map(lambda x: str(int(x)).zfill(largo) if pd.notna(x) else pd.NA)
+            original = col + "_original"
+            if original not in df.columns:
+                df[original] = df[col]
+            values = df[col].astype("string").str.strip()
+            valid = values.str.fullmatch(r"\d{1," + str(largo) + r"}(?:\.0+)?", na=False)
+            df[col] = values.where(valid).str.replace(r"\.0+$", "", regex=True).str.zfill(largo)
     return df
 
 
 def limpiar_categoricas(df, columnas):
     for col in columnas:
         if col in df.columns:
-            num = pd.to_numeric(df[col], errors="coerce")
-            df[col] = num.map(lambda x: str(int(x)) if pd.notna(x) else pd.NA)
+            # No convertir etiquetas de encuesta en nulos por no ser números.
+            df[col] = df[col].astype("string").str.replace(r"^(\d+)\.0+$", r"\1", regex=True)
     return df
 
 
 def limpiar_numericas(df, columnas):
     for col in columnas:
         if col in df.columns:
+            if col + "_original" not in df.columns:
+                df[col + "_original"] = df[col]
             df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
 
@@ -80,10 +87,15 @@ def limpiar_numericas(df, columnas):
 def clean_enemdu(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df.columns = df.columns.str.lower().str.strip()
+    for col in ["periodo", "p03", "ingpc", "ingrl", "fexp"]:
+        if col in df.columns and col + "_original" not in df.columns:
+            df[col + "_original"] = df[col]
 
     text_cols = df.select_dtypes(include=["object", "string"]).columns
 
     for col in text_cols:
+        if col.endswith("_original"):
+            continue
         df[col] = df[col].astype("string").str.strip().str.upper()
         df[col] = df[col].apply(fix_broken_text)
 
@@ -94,13 +106,23 @@ def clean_enemdu(df: pd.DataFrame) -> pd.DataFrame:
                 "RURAL": "RURAL",
             })
 
-    df = df.replace({
+    clean_cols = [col for col in df.columns if not col.endswith("_original")]
+    df[clean_cols] = df[clean_cols].replace({
         "": pd.NA,
         "NAN": pd.NA,
         "NONE": pd.NA,
         "SIN_DATO": pd.NA
     })
 
+    if "periodo" in df.columns:
+        df["periodo"] = normalize_period(df["periodo_original"])
+    if "p03" in df.columns:
+        age = df["p03_original"].astype("string").str.strip().str.upper()
+        df["p03"] = pd.to_numeric(age, errors="coerce")
+        df["edad_censurada"] = age.isin(["98 Y MÁS", "98 Y MAS"])
+        df["edad_limite_inferior"] = df["p03"].where(~df["edad_censurada"], 98)
+    if "fexp" in df.columns:
+        df["fexp"] = pd.to_numeric(df["fexp_original"], errors="coerce")
     df = limpiar_codigos(df, VARS_CODIGO_6, largo=6)
     df = limpiar_codigos(df, VARS_CODIGO_4, largo=4)
     df = limpiar_categoricas(df, VARS_CATEGORICAS)

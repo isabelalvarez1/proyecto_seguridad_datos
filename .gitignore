@@ -48,3 +48,13 @@ node_modules/
 .pytest_cache/
 .coverage
 htmlcov/
+reports/eda/
+reports/clean/
+reports/analitica/
+reports/investigacion/
+reports/dashboard/
+web/.browsers/
+web/test-results/
+web/playwright-report/
+/reports.zip
+/scripts.zip

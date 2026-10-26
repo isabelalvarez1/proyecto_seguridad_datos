@@ -5,6 +5,11 @@
 - `scripts/load_raw.py`: lectura de archivos fuente a PostgreSQL.
 - `utils/pipeline.py`: limpieza configurable por chunks.
 - `scripts/clean_*.py`: reglas específicas por fuente.
+- `analysis/`: diagnóstico y limpieza de validación aislada.
+- `scripts/run_clean.py`: construcción verificada y publicación de las cinco
+  fuentes clean desde una validación revisada, sin ejecutar el DWH.
+- `utils/validation_sql.py` y `utils/clean_projection.py`: conversiones compartidas
+  y contrato de columnas, estados y procedencia para clean.
 - `scripts/create_dwh.py`: DDL de ocho dimensiones y cinco hechos; reconstruye
   tablas, no realiza una migración incremental de una base existente.
 - `scripts/load_dimensiones.py` y `scripts/load_hechos.py`: cargas del DWH.
@@ -65,3 +70,15 @@ de sustituir esos archivos.
 El frontend actual consulta la API local y muestra un informe público Power BI.
 La futura migración a Vue debe incorporar filtros coherentes, estados separados
 de cero/sin dato/error y comprobaciones de totales en cada visualización.
+
+## Versiones de clean y DW
+
+La publicación clean conserva las tablas anteriores con sufijo `_1` en esta
+instalación y añade los nombres canónicos `*_limpia`. Publicaciones futuras
+conservan un nombre canónico anterior en `clean_historial` cuando no tiene
+dependencias SQL. Ver [procedimiento](publicacion_clean.md).
+
+Publicar clean no reconstruye claves, hechos ni cubos del DWH. Es necesario
+evaluar el contrato nuevo y los universos de análisis antes de autorizar esa
+reconstrucción, porque la nueva limpieza conserva filas pendientes que antes
+podían excluirse y ahora diferencia categorías abiertas y estados de calidad.

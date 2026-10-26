@@ -1,11 +1,41 @@
 import os
 import glob
+import hashlib
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from io import StringIO
 
 import pandas as pd
 from sqlalchemy import text
 from utils.config import engine
+from utils.validation_sql import ident
+
+
+def file_digest(path):
+    digest = hashlib.sha256()
+    with open(path, 'rb') as source:
+        for block in iter(lambda: source.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def publish_raw(conn, staging, table_name, schema_name):
+    """Intercambio al terminar; conserva la tabla anterior y no usa CASCADE."""
+    conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {'key': f'raw_load:{schema_name}.{table_name}'})
+    existing = conn.execute(text('SELECT to_regclass(:name)::oid'), {'name': f'{schema_name}.{table_name}'}).scalar_one()
+    if existing:
+        dependencies = conn.execute(text('''SELECT count(*) FROM pg_depend d JOIN pg_rewrite rw ON rw.oid=d.objid
+            WHERE d.refobjid=:oid AND rw.ev_class<>:oid'''), {'oid': existing}).scalar_one()
+        foreign_keys = conn.execute(text('SELECT count(*) FROM pg_constraint WHERE confrelid=:oid'), {'oid': existing}).scalar_one()
+        if dependencies or foreign_keys:
+            raise ValueError('La tabla raw tiene dependencias externas; no se sustituye silenciosamente.')
+        archive = table_name[:30] + '_' + datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_') + uuid.uuid4().hex[:5]
+        conn.execute(text('CREATE SCHEMA IF NOT EXISTS raw_historial'))
+        conn.execute(text("SET LOCAL lock_timeout='30s'"))
+        conn.execute(text(f'ALTER TABLE {ident(schema_name)}.{ident(table_name)} RENAME TO {ident(archive)}'))
+        conn.execute(text(f'ALTER TABLE {ident(schema_name)}.{ident(archive)} SET SCHEMA raw_historial'))
+    conn.execute(text(f'ALTER TABLE {ident(schema_name)}.{ident(staging)} RENAME TO {ident(table_name)}'))
 
 
 # =========================================================
@@ -52,6 +82,7 @@ def load_raw_excel(folder, table_name, schema_name="raw", sheet_name="1."):
         df = df.dropna(axis=1, how="all")
         df = df.loc[:, ~df.columns.astype(str).str.match(r"^Unnamed")]
         df["source_file"] = os.path.basename(f)
+        df["source_sha256"] = file_digest(f)
         dfs.append(df)
         print(f"OK: {os.path.basename(f)} -> cols={df.shape[1]} filas={df.shape[0]}")
 
@@ -70,16 +101,18 @@ def load_raw_excel(folder, table_name, schema_name="raw", sheet_name="1."):
 
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
 
+        staging = '_load_' + table_name[:30] + '_' + uuid.uuid4().hex[:8]
         df_combined.to_sql(
-            name=table_name,
+            name=staging,
             con=conn,
             schema=schema_name,
-            if_exists="replace",
+            if_exists="fail",
             index=False,
             chunksize=10000,
             method="multi"
         )
 
+        publish_raw(conn, staging, table_name, schema_name)
         exists = conn.execute(text("""
             SELECT EXISTS (
                 SELECT 1 FROM information_schema.tables
@@ -106,6 +139,9 @@ def read_csv_robusto(path, chunksize=None):
     for enc in encs:
         for sep in seps:
             try:
+                head = pd.read_csv(path, sep=sep, encoding=enc, nrows=3)
+                if len(head.columns) < 2:
+                    raise ValueError('Separador no válido: la cabecera quedó en una sola columna')
                 return pd.read_csv(
                     path, sep=sep, encoding=enc,
                     chunksize=chunksize, low_memory=False
@@ -134,29 +170,33 @@ def load_raw_csv(folder, table_name, schema_name="raw", chunksize=200_000):
     # Detectar todas las columnas posibles
     all_columns = set()
     for f in csv_files:
-        df_head = next(read_csv_robusto(f, chunksize=1))
+        with read_csv_robusto(f, chunksize=1) as reader:
+            df_head = next(reader)
         all_columns.update(df_head.columns.str.strip().str.lower())
+    all_columns.update(['source_file', 'source_sha256'])
     all_columns = sorted(all_columns)
 
     print(f"Archivos: {len(csv_files)} | Columnas totales: {len(all_columns)}")
 
-    # Crear tabla vacía
+    # La fuente actual sigue disponible durante la carga. Todo se publica junto.
+    staging = '_load_' + table_name[:30] + '_' + uuid.uuid4().hex[:8]
     with engine.begin() as conn:
-        conn.execute(text(f"DROP TABLE IF EXISTS {schema_name}.{table_name}"))
-    pd.DataFrame(columns=all_columns).to_sql(table_name, engine, schema=schema_name, index=False)
-
-    # Carga real
-    for f in csv_files:
-        print(f"\nProcesando {os.path.basename(f)}")
-        for chunk in read_csv_robusto(f, chunksize=chunksize):
-            chunk.columns = chunk.columns.str.strip().str.lower()
-            chunk = chunk.reindex(columns=all_columns)
-            for col in chunk.select_dtypes(include="uint64").columns:
-                chunk[col] = chunk[col].astype("int64")
-            chunk.to_sql(
-                table_name, engine, schema=schema_name,
-                if_exists="append", index=False, chunksize=10000
-            )
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {ident(schema_name)}'))
+        pd.DataFrame(columns=all_columns).to_sql(staging, conn, schema=schema_name, index=False)
+        for f in csv_files:
+            print(f"\nProcesando {os.path.basename(f)}")
+            digest = file_digest(f)
+            for chunk in read_csv_robusto(f, chunksize=chunksize):
+                chunk.columns = chunk.columns.str.strip().str.lower()
+                if chunk.columns.duplicated().any():
+                    raise ValueError(f'Columnas repetidas tras normalizar en {f}')
+                chunk['source_file'] = os.path.basename(f)
+                chunk['source_sha256'] = digest
+                chunk = chunk.reindex(columns=all_columns)
+                for col in chunk.select_dtypes(include="uint64").columns:
+                    chunk[col] = chunk[col].astype("int64")
+                chunk.to_sql(staging, conn, schema=schema_name, if_exists="append", index=False, chunksize=10000)
+        publish_raw(conn, staging, table_name, schema_name)
 
     print(f"\n{schema_name}.{table_name} cargada completamente.")
 
